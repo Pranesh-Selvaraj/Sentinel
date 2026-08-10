@@ -382,7 +382,7 @@ Rules that keep Sentinel honest:
 ## Development
 
 ```bash
-git clone https://github.com/you/sentinel.git
+git clone https://github.com/Pranesh-Selvaraj/Sentinel.git
 cd sentinel
 python3 -m venv .venv && source .venv/bin/activate
 pip install -e .
