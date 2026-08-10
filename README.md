@@ -36,7 +36,7 @@ it did.
 Requires **Python 3.11+** and no third-party dependencies.
 
 ```bash
-git clone https://github.com/you/sentinel.git
+git clone https://github.com/Pranesh-Selvaraj/Sentinel.git
 cd sentinel
 pip install .
 ```
