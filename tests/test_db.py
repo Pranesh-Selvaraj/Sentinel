@@ -94,7 +94,9 @@ class DatabaseTests(unittest.TestCase):
 
     def test_updates_audit(self):
         sid = self.db.add_source("github", "A", {}, utc_now())
-        self.db.record_update(sid, "VS Code", "1.100.0", "1.101.0", "https://code.visualstudio.com", utc_now(), "pending")
+        self.db.record_update(
+            sid, "VS Code", "1.100.0", "1.101.0", "https://code.visualstudio.com", utc_now(), "pending"
+        )
         rows = self.db.list_updates()
         self.assertEqual(len(rows), 1)
         self.assertEqual(rows[0]["latest_version"], "1.101.0")

@@ -2,13 +2,13 @@
 
 from __future__ import annotations
 
-import json
 import re
 
 from sentinel.diffing import Change, ChangeDetector
+from sentinel.httpclient import Transport
 from sentinel.models import Observation, Source
-from sentinel.monitors.base import Monitor
 from sentinel.monitors import _registry
+from sentinel.monitors.base import Monitor
 from sentinel.term import input_text
 from sentinel.util import sha256_hex, truncate
 
@@ -57,9 +57,7 @@ class HttpMonitor(Monitor):
     def diff(self, source: Source, previous: Observation | None, current: Observation) -> list[Change]:
         if previous is None:
             return []
-        status_change = ChangeDetector.status(
-            previous.state.get("status"), current.state.get("status")
-        )
+        status_change = ChangeDetector.status(previous.state.get("status"), current.state.get("status"))
         if status_change:
             return [status_change]  # status moved; content details are moot
         content_change = ChangeDetector.content(

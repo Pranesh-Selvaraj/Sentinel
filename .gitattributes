@@ -1,0 +1,10 @@
+# Normalize line endings: text files use LF, binaries untouched.
+* text=auto
+
+# Always LF for source and docs, even on Windows checkouts.
+*.py    text eol=lf
+*.toml  text eol=lf
+*.md    text eol=lf
+*.yml   text eol=lf
+*.yaml  text eol=lf
+.gitignore text eol=lf

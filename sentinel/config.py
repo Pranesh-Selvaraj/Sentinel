@@ -78,7 +78,7 @@ def load_settings(config_dir: str | Path | None = None) -> Settings:
             with open(config_file, "rb") as fh:
                 raw = tomllib.load(fh)
         except (tomllib.TOMLDecodeError, OSError) as exc:
-            raise ConfigError(f"invalid config file {config_file}: {exc}")
+            raise ConfigError(f"invalid config file {config_file}: {exc}") from exc
 
     sentinel_cfg = raw.get("sentinel", {})
     http_cfg = raw.get("http", {})
@@ -90,7 +90,7 @@ def load_settings(config_dir: str | Path | None = None) -> Settings:
     try:
         parse_interval(interval)
     except ValueError as exc:
-        raise ConfigError(f"invalid check_interval in {config_file}: {exc}")
+        raise ConfigError(f"invalid check_interval in {config_file}: {exc}") from exc
     if timeout <= 0:
         raise ConfigError("timeout must be positive")
     if retries < 0:
@@ -105,6 +105,6 @@ def load_settings(config_dir: str | Path | None = None) -> Settings:
         retries=retries,
         check_interval=interval,
         user_agent=user_agent,
-        github_token=token if token else None,
+        github_token=token or None,
         _raw=raw,
     )

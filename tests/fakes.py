@@ -8,7 +8,9 @@ from sentinel.errors import FetchError
 from sentinel.httpclient import Response
 
 
-def make_response(status: int, body: bytes | str = b"", headers: dict | None = None, url: str = "http://fake") -> Response:
+def make_response(
+    status: int, body: bytes | str = b"", headers: dict | None = None, url: str = "http://fake"
+) -> Response:
     if isinstance(body, str):
         body = body.encode("utf-8")
     return Response(status=status, headers=headers or {}, body=body, url=url)
@@ -45,6 +47,6 @@ class FakeTransport:
     def get_json(self, url: str, headers: dict | None = None):
         return json.loads(self.get(url, headers).body.decode("utf-8"))
 
-    def route(self, url: str, response) -> "FakeTransport":
+    def route(self, url: str, response) -> FakeTransport:
         self.routes[url] = response
         return self

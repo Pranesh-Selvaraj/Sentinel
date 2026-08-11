@@ -12,6 +12,7 @@ import random
 import socket
 import time
 import urllib.error
+import urllib.parse
 import urllib.request
 from dataclasses import dataclass
 
@@ -57,15 +58,21 @@ class Transport:
 
     # -- public API -------------------------------------------------------
     def get(self, url: str, headers: dict | None = None) -> Response:
+        # Only http(s) is ever opened — file:, ftp:, custom schemes and
+        # other surprises are rejected up front (defense against
+        # misconfigured/local-file reads via user-supplied URLs).
+        scheme = urllib.parse.urlparse(url).scheme.lower()
+        if scheme not in ("http", "https"):
+            raise FetchError(f"unsupported URL scheme {scheme!r} — only http/https are allowed")
         request_headers = {"User-Agent": self.user_agent}
         if headers:
             request_headers.update(headers)
-        req = urllib.request.Request(url, headers=request_headers, method="GET")
+        req = urllib.request.Request(url, headers=request_headers, method="GET")  # noqa: S310 — scheme guarded above
 
         attempts = 0
         while True:
             try:
-                with urllib.request.urlopen(req, timeout=self.timeout) as resp:
+                with urllib.request.urlopen(req, timeout=self.timeout) as resp:  # noqa: S310  # nosec B310 — scheme guarded above
                     body = resp.read()
                     return Response(
                         status=resp.status,
@@ -77,26 +84,33 @@ class Transport:
                 body = exc.read(65536) if hasattr(exc, "read") else b""
                 lowered = {k.lower(): v for k, v in exc.headers.items()}
                 if exc.code == 403 and lowered.get("x-ratelimit-remaining") == "0":
+                    # Rate limits are not transient; retrying would waste attempts.
                     reset = lowered.get("x-ratelimit-reset")
                     raise FetchRateLimited(
                         reset_epoch=int(reset) if reset and reset.isdigit() else None,
                         retries_used=attempts,
-                    )
+                    ) from exc
                 if exc.code in RETRYABLE_STATUS and attempts < self.retries:
                     attempts += 1
                     time.sleep(self._backoff(attempts))
                     continue
-                raise FetchHTTP(exc.code, body, url, retries_used=attempts)
-            except urllib.error.URLError as exc:
-                reason = exc.reason
+                raise FetchHTTP(exc.code, body, url, retries_used=attempts) from exc
+            except (urllib.error.URLError, OSError, TimeoutError) as exc:
+                reason = exc.reason if isinstance(exc, urllib.error.URLError) else exc
+                if attempts < self.retries:
+                    attempts += 1
+                    time.sleep(self._backoff(attempts))
+                    continue
                 if isinstance(reason, (socket.timeout, TimeoutError)):
-                    raise FetchTimeout(url, retries_used=attempts)
+                    raise FetchTimeout(url, retries_used=attempts) from exc
                 detail = str(reason) or repr(reason)
-                if isinstance(reason, ConnectionError) or "getaddrinfo" in detail or "connection" in detail.lower():
-                    raise FetchConnection(detail, retries_used=attempts)
-                raise FetchError(detail, retries_used=attempts)
-            except (socket.timeout, TimeoutError):
-                raise FetchTimeout(url, retries_used=attempts)
+                if (
+                    isinstance(reason, ConnectionError)
+                    or "getaddrinfo" in detail
+                    or "connection" in detail.lower()
+                ):
+                    raise FetchConnection(detail, retries_used=attempts) from exc
+                raise FetchError(detail, retries_used=attempts) from exc
 
     def get_json(self, url: str, headers: dict | None = None):
         """GET and parse JSON. Raises :class:`FetchInvalidJSON` on bad bodies."""
@@ -104,8 +118,9 @@ class Transport:
         try:
             return json.loads(resp.body.decode("utf-8", "replace"))
         except (ValueError, UnicodeDecodeError):
-            raise FetchInvalidJSON(url)
+            raise FetchInvalidJSON(url) from None
 
     # -- helpers ----------------------------------------------------------
     def _backoff(self, attempt: int) -> float:
-        return self.backoff * (2 ** (attempt - 1)) + random.uniform(0, 0.25)
+        # jitter is for load spreading, not cryptography
+        return self.backoff * (2 ** (attempt - 1)) + random.uniform(0, 0.25)  # nosec B311

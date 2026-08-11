@@ -35,7 +35,9 @@ class AppTests(unittest.TestCase):
         self.assertIsNotNone(self.app.db.get_source(source.id))
 
     def test_add_unknown_repo_raises(self):
-        self.transport.route(f"{GITHUB_API}", __import__("sentinel.errors", fromlist=["FetchHTTP"]).FetchHTTP(404))
+        self.transport.route(
+            f"{GITHUB_API}", __import__("sentinel.errors", fromlist=["FetchHTTP"]).FetchHTTP(404)
+        )
         with self.assertRaises(UsageError):
             self.app.add("github", {"repo": "microsoft/vscode"})
 

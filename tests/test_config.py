@@ -9,15 +9,21 @@ from sentinel.errors import ConfigError
 
 
 class ConfigDirTests(unittest.TestCase):
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.tmp.cleanup)
+
     def test_env_override(self):
-        with mock.patch.dict(os.environ, {"SENTINEL_HOME": "/tmp/x"}, clear=False):
-            self.assertEqual(default_config_dir(), Path("/tmp/x"))
+        with mock.patch.dict(os.environ, {"SENTINEL_HOME": self.tmp.name}, clear=False):
+            self.assertEqual(default_config_dir(), Path(self.tmp.name))
 
     def test_linux_default(self):
-        with mock.patch.dict(os.environ, {}, clear=False):
-            with mock.patch("sentinel.config.sys.platform", "linux"):
-                with mock.patch("sentinel.config.os.name", "posix"):
-                    self.assertEqual(default_config_dir(), Path.home() / ".sentinel")
+        with (
+            mock.patch.dict(os.environ, {}, clear=False),
+            mock.patch("sentinel.config.sys.platform", "linux"),
+            mock.patch("sentinel.config.os.name", "posix"),
+        ):
+            self.assertEqual(default_config_dir(), Path.home() / ".sentinel")
 
 
 class LoadSettingsTests(unittest.TestCase):

@@ -10,12 +10,11 @@ import argparse
 import contextlib
 import sys
 
-from sentinel import __version__
+from sentinel import __version__, display
 from sentinel.app import SentinelApp
 from sentinel.errors import AbortError, SentinelError, UsageError
 from sentinel.monitors import get_monitor
 from sentinel.term import Output, confirm, select
-from sentinel import display
 
 
 def create_app(config_dir=None) -> SentinelApp:
@@ -44,22 +43,36 @@ def build_parser() -> argparse.ArgumentParser:
 
     def _add_parser(name: str, help_text: str, **kwargs):
         return sub.add_parser(name, help=help_text, parents=[common], allow_abbrev=False, **kwargs)
+
     # -- add --------------------------------------------------------------
     p_add = _add_parser("add", "Add a source to monitor (interactive)")
     add_sub = p_add.add_subparsers(dest="add_kind", metavar="TYPE")
     p_add.add_argument("--name", help="display name (defaults to repo/host)")
     p_add.add_argument("--skip-verify", action="store_true", help="skip GitHub existence check")
 
-    p_gh = add_sub.add_parser("github", help="monitor a GitHub repository", parents=[common], allow_abbrev=False)
+    p_gh = add_sub.add_parser(
+        "github", help="monitor a GitHub repository", parents=[common], allow_abbrev=False
+    )
     p_gh.add_argument("repo", help="owner/name, e.g. microsoft/vscode")
-    p_gh.add_argument("--monitor", choices=("release", "tags", "commits"), default="release",
-                      help="what to watch (default: release)")
+    p_gh.add_argument(
+        "--monitor",
+        choices=("release", "tags", "commits"),
+        default="release",
+        help="what to watch (default: release)",
+    )
     p_gh.add_argument("--name", help="display name (default: repo)")
     p_gh.add_argument("--skip-verify", action="store_true")
-    p_gh.add_argument("--install-path", metavar="DIR",
-                      help="download latest release artifacts here — enables 'sentinel upgrade'")
-    p_gh.add_argument("--asset", action="append", metavar="PATTERN",
-                      help="asset name pattern to download (fnmatch, repeatable; default: largest asset)")
+    p_gh.add_argument(
+        "--install-path",
+        metavar="DIR",
+        help="download latest release artifacts here — enables 'sentinel upgrade'",
+    )
+    p_gh.add_argument(
+        "--asset",
+        action="append",
+        metavar="PATTERN",
+        help="asset name pattern to download (fnmatch, repeatable; default: largest asset)",
+    )
 
     p_http = add_sub.add_parser("http", help="monitor a website", parents=[common], allow_abbrev=False)
     p_http.add_argument("url", help="https://example.com")
@@ -69,8 +82,12 @@ def build_parser() -> argparse.ArgumentParser:
     p_api.add_argument("url", help="https://api.example.com/version")
     p_api.add_argument("--jpath", help="JSON path to extract, e.g. $.version")
     p_api.add_argument("--name", help="display name (default: hostname)")
-    p_api.add_argument("--header", action="append", metavar="K=V",
-                       help="extra request header (repeatable; values may use ${ENV_VAR})")
+    p_api.add_argument(
+        "--header",
+        action="append",
+        metavar="K=V",
+        help="extra request header (repeatable; values may use ${ENV_VAR})",
+    )
 
     # -- other commands ---------------------------------------------------
     p_remove = _add_parser("remove", "Remove a source")
@@ -83,8 +100,9 @@ def build_parser() -> argparse.ArgumentParser:
     p_check = _add_parser("check", "Check all sources and report changes")
     p_check.add_argument("refs", nargs="*", help="check only these sources (id/name/prefix)")
     p_check.add_argument("--json", action="store_true", help="machine-readable output")
-    p_check.add_argument("--exit-zero", action="store_true",
-                         help="always exit 0 (default: 1 when changes, 2 when failures)")
+    p_check.add_argument(
+        "--exit-zero", action="store_true", help="always exit 0 (default: 1 when changes, 2 when failures)"
+    )
 
     p_status = _add_parser("status", "Overview: sources, values, health")
     p_status.add_argument("--json", action="store_true", help="machine-readable output")
@@ -99,18 +117,23 @@ def build_parser() -> argparse.ArgumentParser:
     p_history.add_argument("--json", action="store_true", help="machine-readable output")
 
     p_watch = _add_parser("watch", "Check repeatedly and print changes as they happen")
-    p_watch.add_argument("--interval", metavar="DURATION",
-                         help="e.g. 10m, 1h, 30s (default: config check_interval)")
+    p_watch.add_argument(
+        "--interval", metavar="DURATION", help="e.g. 10m, 1h, 30s (default: config check_interval)"
+    )
 
-    p_update = _add_parser("update", "Check for updates to Sentinel itself")
+    _add_parser("update", "Check for updates to Sentinel itself")
 
     p_upgrade = _add_parser("upgrade", "Plan and apply updates for monitored software")
     p_upgrade.add_argument("refs", nargs="*", help="only these sources (id/name/prefix)")
-    p_upgrade.add_argument("--dry-run", action="store_true",
-                           help="show what would happen without changing anything")
+    p_upgrade.add_argument(
+        "--dry-run", action="store_true", help="show what would happen without changing anything"
+    )
     p_upgrade.add_argument("--yes", action="store_true", help="apply without confirmation")
-    p_upgrade.add_argument("--allow-unverified", action="store_true",
-                           help="download artifacts even when no checksum is available")
+    p_upgrade.add_argument(
+        "--allow-unverified",
+        action="store_true",
+        help="download artifacts even when no checksum is available",
+    )
     p_upgrade.add_argument("--json", action="store_true", help="machine-readable output")
 
     p_config = _add_parser("config", "Show configuration and paths")
@@ -131,10 +154,7 @@ def _interactive_add(app: SentinelApp, out: Output) -> int:
     kind, default_monitor = next(c[1:] for c in choices if c[0] == picked)
 
     monitor = get_monitor(kind)
-    if kind == "github":
-        config = monitor.prompt(default_monitor=default_monitor)
-    else:
-        config = monitor.prompt()
+    config = monitor.prompt(default_monitor=default_monitor) if kind == "github" else monitor.prompt()
     from sentinel.term import input_text
 
     name = input_text("Name", default=monitor.default_name(config))
@@ -218,13 +238,19 @@ def run_command(args, app: SentinelApp, out: Output) -> int:
     if args.command == "show":
         data = app.show(args.ref)
         if args.json:
-            out.print_json({"source": data["source"].to_dict(),
-                            "snapshot": None if not data["snapshot"] else {
-                                "observed_at": data["snapshot"].observed_at,
-                                "value": data["snapshot"].value,
-                                "state": data["snapshot"].state,
-                            },
-                            "changes": data["changes"]})
+            out.print_json(
+                {
+                    "source": data["source"].to_dict(),
+                    "snapshot": None
+                    if not data["snapshot"]
+                    else {
+                        "observed_at": data["snapshot"].observed_at,
+                        "value": data["snapshot"].value,
+                        "state": data["snapshot"].state,
+                    },
+                    "changes": data["changes"],
+                }
+            )
         else:
             display.display_show(out, data)
         return 0
@@ -239,11 +265,13 @@ def run_command(args, app: SentinelApp, out: Output) -> int:
             args.ref = picked
         data = app.history(args.ref, limit=args.limit)
         if args.json:
-            out.print_json({
-                "name": data["source"].name,
-                "kind": data["source"].kind,
-                "snapshots": data["snapshots"],
-            })
+            out.print_json(
+                {
+                    "name": data["source"].name,
+                    "kind": data["source"].kind,
+                    "snapshots": data["snapshots"],
+                }
+            )
         else:
             display.display_history(out, data)
         return 0
@@ -298,7 +326,9 @@ def run_command(args, app: SentinelApp, out: Output) -> int:
                 return 0
         results = [app.apply_update(p, allow_unverified=args.allow_unverified) for p in report.plans]
         if args.json:
-            out.print_json({"plans": [p.to_dict() for p in report.plans], "results": [r.to_dict() for r in results]})
+            out.print_json(
+                {"plans": [p.to_dict() for p in report.plans], "results": [r.to_dict() for r in results]}
+            )
         else:
             display.display_upgrade_results(out, results)
         return 0 if all(r.ok for r in results) else 1

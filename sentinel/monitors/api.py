@@ -17,6 +17,7 @@ import re
 
 from sentinel.diffing import Change, ChangeDetector
 from sentinel.errors import FetchInvalidJSON
+from sentinel.httpclient import Transport
 from sentinel.models import Observation, Source
 from sentinel.monitors import _registry
 from sentinel.monitors.base import Monitor
@@ -74,7 +75,7 @@ class ApiMonitor(Monitor):
         try:
             data = json.loads(resp.body.decode("utf-8", "replace"))
         except (ValueError, UnicodeDecodeError):
-            raise FetchInvalidJSON(url)
+            raise FetchInvalidJSON(url) from None
 
         jpath = config.get("jpath")
         if jpath:
@@ -99,17 +100,13 @@ class ApiMonitor(Monitor):
     def diff(self, source: Source, previous: Observation | None, current: Observation) -> list[Change]:
         if previous is None:
             return []
-        status_change = ChangeDetector.status(
-            previous.state.get("status"), current.state.get("status")
-        )
+        status_change = ChangeDetector.status(previous.state.get("status"), current.state.get("status"))
         if status_change:
             return [status_change]
 
         jpath = source.config.get("jpath")
         if jpath:
-            change = ChangeDetector.json_field(
-                jpath, previous.state.get("value"), current.state.get("value")
-            )
+            change = ChangeDetector.json_field(jpath, previous.state.get("value"), current.state.get("value"))
             return [change] if change else []
 
         body_change = ChangeDetector.content(

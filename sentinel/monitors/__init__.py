@@ -25,7 +25,7 @@ class Registry:
             return self._by_kind[kind]
         except KeyError:
             known = ", ".join(sorted(self._by_kind)) or "none"
-            raise ConfigError(f"unknown source type {kind!r} (available: {known})")
+            raise ConfigError(f"unknown source type {kind!r} (available: {known})") from None
 
     def kinds(self) -> list[str]:
         return sorted(self._by_kind)
@@ -47,4 +47,4 @@ def monitor_kinds() -> list[str]:
 
 
 # Importing the submodules registers the built-in monitors.
-from sentinel.monitors import api, github, http  # noqa: E402
+from sentinel.monitors import api, github, http  # noqa: F401 — registration side effects

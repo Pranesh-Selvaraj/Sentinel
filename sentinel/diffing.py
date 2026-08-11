@@ -104,7 +104,9 @@ class ChangeDetector:
         return Change("json", prev, cur, "", "info", {"field": field})
 
     @staticmethod
-    def content(previous_hash: str | None, current_hash: str, description: str = "Page content changed") -> Change | None:
+    def content(
+        previous_hash: str | None, current_hash: str, description: str = "Page content changed"
+    ) -> Change | None:
         """Content hash changed (websites, API bodies)."""
         if previous_hash == current_hash:
             return None
@@ -139,5 +141,7 @@ class ChangeDetector:
         cur = "online" if current_online else "offline"
         if prev == cur:
             return None
-        desc = "Source reachable again" if current_online else f"Source unreachable: {error or 'unknown error'}"
+        desc = (
+            "Source reachable again" if current_online else f"Source unreachable: {error or 'unknown error'}"
+        )
         return Change("availability", prev, cur, desc, "warn")

@@ -42,4 +42,4 @@ def all_updaters() -> list[Updater]:
 
 
 # Importing the submodules registers the built-in updaters.
-from sentinel.updaters import github_release  # noqa: E402
+from sentinel.updaters import github_release  # noqa: F401 — registration side effects

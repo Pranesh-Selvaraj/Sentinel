@@ -97,7 +97,7 @@ def compare(a, b) -> int | None:
         return 1  # release > prerelease
     if vb.pre is None:
         return -1
-    for x, y in zip(va.pre, vb.pre):
+    for x, y in zip(va.pre, vb.pre, strict=False):
         c = _cmp_token(x, y)
         if c:
             return c

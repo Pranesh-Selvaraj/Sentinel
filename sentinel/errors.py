@@ -100,7 +100,7 @@ class FetchRateLimited(FetchError):
             try:
                 import datetime as dt
 
-                when = dt.datetime.fromtimestamp(self.reset_epoch, dt.timezone.utc).strftime("%H:%M UTC")
+                when = dt.datetime.fromtimestamp(self.reset_epoch, dt.UTC).strftime("%H:%M UTC")
                 msg += f" — resets at {when}"
             except (OverflowError, OSError, ValueError):
                 pass

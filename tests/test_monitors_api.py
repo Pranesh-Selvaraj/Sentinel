@@ -16,46 +16,64 @@ class ApiFetchTests(unittest.TestCase):
         self.monitor = ApiMonitor()
 
     def test_fetch_with_jpath(self):
-        transport = FakeTransport({
-            "https://api.example.com/version": make_json_response(200, {"version": "1.4.2"}),
-        })
-        obs = self.monitor.fetch(source({"url": "https://api.example.com/version", "jpath": "$.version"}), transport)
+        transport = FakeTransport(
+            {
+                "https://api.example.com/version": make_json_response(200, {"version": "1.4.2"}),
+            }
+        )
+        obs = self.monitor.fetch(
+            source({"url": "https://api.example.com/version", "jpath": "$.version"}), transport
+        )
         self.assertEqual(obs.value, "1.4.2")
         self.assertEqual(obs.state["status"], 200)
 
     def test_nested_jpath(self):
-        transport = FakeTransport({
-            "https://api.example.com/x": make_json_response(200, {"data": {"items": [{"id": 7}]}}),
-        })
-        obs = self.monitor.fetch(source({"url": "https://api.example.com/x", "jpath": "$.data.items[0].id"}), transport)
+        transport = FakeTransport(
+            {
+                "https://api.example.com/x": make_json_response(200, {"data": {"items": [{"id": 7}]}}),
+            }
+        )
+        obs = self.monitor.fetch(
+            source({"url": "https://api.example.com/x", "jpath": "$.data.items[0].id"}), transport
+        )
         self.assertEqual(obs.value, "7")
 
     def test_missing_field_is_none(self):
-        transport = FakeTransport({
-            "https://api.example.com/x": make_json_response(200, {"other": 1}),
-        })
-        obs = self.monitor.fetch(source({"url": "https://api.example.com/x", "jpath": "$.version"}), transport)
+        transport = FakeTransport(
+            {
+                "https://api.example.com/x": make_json_response(200, {"other": 1}),
+            }
+        )
+        obs = self.monitor.fetch(
+            source({"url": "https://api.example.com/x", "jpath": "$.version"}), transport
+        )
         self.assertIsNone(obs.value)
 
     def test_invalid_json_raises(self):
-        transport = FakeTransport({
-            "https://api.example.com/x": make_response(200, b"<html>not json</html>"),
-        })
+        transport = FakeTransport(
+            {
+                "https://api.example.com/x": make_response(200, b"<html>not json</html>"),
+            }
+        )
         with self.assertRaises(FetchInvalidJSON):
             self.monitor.fetch(source({"url": "https://api.example.com/x", "jpath": "$.v"}), transport)
 
     def test_no_jpath_tracks_body_hash(self):
-        transport = FakeTransport({
-            "https://api.example.com/x": make_json_response(200, {"a": 1}),
-        })
+        transport = FakeTransport(
+            {
+                "https://api.example.com/x": make_json_response(200, {"a": 1}),
+            }
+        )
         obs = self.monitor.fetch(source({"url": "https://api.example.com/x"}), transport)
         self.assertEqual(obs.value, "200")
         self.assertIn("body_sha256", obs.state)
 
     def test_headers_env_expansion(self):
-        transport = FakeTransport({
-            "https://api.example.com/x": make_json_response(200, {"ok": True}),
-        })
+        transport = FakeTransport(
+            {
+                "https://api.example.com/x": make_json_response(200, {"ok": True}),
+            }
+        )
         with mock.patch.dict("os.environ", {"API_KEY": "secret-value"}, clear=False):
             self.monitor.fetch(
                 source({"url": "https://api.example.com/x", "headers": {"X-Api-Key": "${API_KEY}"}}),

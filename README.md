@@ -4,6 +4,10 @@
 
 > Add it once. Sentinel watches it. Know when it changes.
 
+[![CI](https://github.com/Pranesh-Selvaraj/Sentinel/actions/workflows/ci.yml/badge.svg)](https://github.com/Pranesh-Selvaraj/Sentinel/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+[![Python](https://img.shields.io/badge/python-3.11%2B-blue.svg)](pyproject.toml)
+
 Sentinel is a lightweight CLI tool that monitors websites, APIs, and GitHub
 repositories for changes. It remembers the previous state of everything it
 watches, explains exactly what changed (not just *that* it changed), and is
@@ -37,7 +41,7 @@ Requires **Python 3.11+** and no third-party dependencies.
 
 ```bash
 git clone https://github.com/Pranesh-Selvaraj/Sentinel.git
-cd sentinel
+cd Sentinel
 pip install .
 ```
 
@@ -371,6 +375,10 @@ Rules that keep Sentinel honest:
 - one failing source never crashes a check run (retries, per-source errors,
   availability transitions recorded)
 - secrets are never printed (`mask_secrets` in `show`, `${ENV}` references)
+- only `http`/`https` URLs are ever opened — `file:`/`ftp:`/other schemes
+  are rejected by the transport layer
+- the transport retries transient failures (network errors and 5xx) with
+  backoff, and never retries rate limits or 4xx client errors
 - upgrade planning never mutates anything (`--dry-run` by default; apply
   requires confirmation or `--yes`)
 - downloads without a verified checksum are blocked unless
@@ -383,7 +391,7 @@ Rules that keep Sentinel honest:
 
 ```bash
 git clone https://github.com/Pranesh-Selvaraj/Sentinel.git
-cd sentinel
+cd Sentinel
 python3 -m venv .venv && source .venv/bin/activate
 pip install -e .
 ```
@@ -400,10 +408,34 @@ python3 -m unittest discover -s tests -v
 Covered: version comparison, all diff strategies, JSON-path resolution,
 configuration loading, SQLite persistence (incl. across reopen), GitHub
 releases/tags/commits fetching and diffing (mocked HTTP), HTTP status/content
-changes, API JSON extraction and header env-expansion, the full
-add → check → change → history flow, failure isolation and recovery,
-upgrade planning/checksum verification/download application and the audit
-trail, CLI command behavior and exit codes, and the watch scheduler.
+changes, API JSON extraction and header env-expansion, transport retries and
+typed errors, the full add → check → change → history flow, failure isolation
+and recovery, upgrade planning/checksum verification/download application and
+the audit trail, CLI command behavior and exit codes, and the watch scheduler.
+
+### Linting & security checks
+
+```bash
+pip install ruff bandit pip-audit
+ruff check sentinel tests
+ruff format sentinel tests
+bandit -q -r sentinel
+```
+
+### How to contribute
+
+`main` is branch-protected: **nobody commits to it directly** — all changes
+land via pull requests that must pass CI (tests on Python 3.11–3.14, ruff,
+bandit, pip-audit) and be approved by the repository owner. See
+[CONTRIBUTING.md](CONTRIBUTING.md) for the full workflow, and
+[SECURITY.md](SECURITY.md) for reporting vulnerabilities (please don't open
+public issues for those).
+
+## Community & governance
+
+- [Contributing guidelines](CONTRIBUTING.md)
+- [Security policy](SECURITY.md)
+- [License](LICENSE) — MIT
 
 ---
 

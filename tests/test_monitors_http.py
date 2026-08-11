@@ -14,7 +14,9 @@ def source(url="https://example.com") -> Source:
 class HttpFetchTests(unittest.TestCase):
     def setUp(self):
         self.monitor = HttpMonitor()
-        self.transport = FakeTransport({"https://example.com": make_response(200, HTML, {"content-type": "text/html"})})
+        self.transport = FakeTransport(
+            {"https://example.com": make_response(200, HTML, {"content-type": "text/html"})}
+        )
 
     def test_fetch_status_and_title(self):
         obs = self.monitor.fetch(source(), self.transport)

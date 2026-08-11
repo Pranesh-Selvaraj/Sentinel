@@ -20,16 +20,23 @@ class GitHubFetchTests(unittest.TestCase):
     def test_release_fetch(self):
         self.transport.route(
             f"{API}/repos/microsoft/vscode/releases/latest",
-            make_json_response(200, {
-                "tag_name": "1.103.0",
-                "name": "1.103.0",
-                "published_at": "2026-08-09T12:00:00Z",
-                "html_url": "https://github.com/microsoft/vscode/releases/tag/1.103.0",
-                "prerelease": False,
-                "assets": [{"name": "code.deb", "size": 123, "browser_download_url": "https://x/code.deb"}],
-            }),
+            make_json_response(
+                200,
+                {
+                    "tag_name": "1.103.0",
+                    "name": "1.103.0",
+                    "published_at": "2026-08-09T12:00:00Z",
+                    "html_url": "https://github.com/microsoft/vscode/releases/tag/1.103.0",
+                    "prerelease": False,
+                    "assets": [
+                        {"name": "code.deb", "size": 123, "browser_download_url": "https://x/code.deb"}
+                    ],
+                },
+            ),
         )
-        obs = GitHubMonitor().fetch(source({"repo": "microsoft/vscode", "monitor": "release"}), self.transport)
+        obs = GitHubMonitor().fetch(
+            source({"repo": "microsoft/vscode", "monitor": "release"}), self.transport
+        )
         self.assertEqual(obs.value, "1.103.0")
         self.assertEqual(obs.state["tag"], "1.103.0")
         self.assertEqual(obs.state["assets"][0]["name"], "code.deb")
@@ -44,17 +51,17 @@ class GitHubFetchTests(unittest.TestCase):
             f"{API}/repos/microsoft/vscode/releases?per_page=1",
             make_json_response(200, [{"tag_name": "v1.2.0", "name": "v1.2.0"}]),
         )
-        obs = GitHubMonitor().fetch(source({"repo": "microsoft/vscode", "monitor": "release"}), self.transport)
+        obs = GitHubMonitor().fetch(
+            source({"repo": "microsoft/vscode", "monitor": "release"}), self.transport
+        )
         self.assertEqual(obs.value, "v1.2.0")
 
     def test_no_releases(self):
-        self.transport.route(
-            f"{API}/repos/microsoft/vscode/releases?per_page=1", make_json_response(200, [])
+        self.transport.route(f"{API}/repos/microsoft/vscode/releases?per_page=1", make_json_response(200, []))
+        self.transport.route(f"{API}/repos/microsoft/vscode/releases/latest", FetchHTTP(404, b"", API))
+        obs = GitHubMonitor().fetch(
+            source({"repo": "microsoft/vscode", "monitor": "release"}), self.transport
         )
-        self.transport.route(
-            f"{API}/repos/microsoft/vscode/releases/latest", FetchHTTP(404, b"", API)
-        )
-        obs = GitHubMonitor().fetch(source({"repo": "microsoft/vscode", "monitor": "release"}), self.transport)
         self.assertIsNone(obs.value)
 
     def test_tags_fetch(self):
@@ -69,27 +76,42 @@ class GitHubFetchTests(unittest.TestCase):
     def test_commits_fetch(self):
         self.transport.route(
             f"{API}/repos/microsoft/vscode/commits?per_page=1",
-            make_json_response(200, [{
-                "sha": "deadbeef1234567",
-                "html_url": "https://github.com/microsoft/vscode/commit/deadbeef",
-                "commit": {"message": "Fix the thing\n\nDetails",
-                           "author": {"name": "Ada", "date": "2026-08-09T10:00:00Z"}},
-            }]),
+            make_json_response(
+                200,
+                [
+                    {
+                        "sha": "deadbeef1234567",
+                        "html_url": "https://github.com/microsoft/vscode/commit/deadbeef",
+                        "commit": {
+                            "message": "Fix the thing\n\nDetails",
+                            "author": {"name": "Ada", "date": "2026-08-09T10:00:00Z"},
+                        },
+                    }
+                ],
+            ),
         )
-        obs = GitHubMonitor().fetch(source({"repo": "microsoft/vscode", "monitor": "commits"}), self.transport)
+        obs = GitHubMonitor().fetch(
+            source({"repo": "microsoft/vscode", "monitor": "commits"}), self.transport
+        )
         self.assertEqual(obs.value, "deadbeef1234567")
         self.assertEqual(obs.state["short_sha"], "deadbeef")
         self.assertEqual(obs.state["message"], "Fix the thing")
 
     def test_invalid_repo_config(self):
-        with self.assertRaises(Exception):
+        from sentinel.errors import ConfigError
+
+        with self.assertRaises(ConfigError):
             GitHubMonitor().fetch(source({"repo": "not-a-repo"}), self.transport)
 
     def test_auth_header_sent(self):
-        transport = Transport(github_token="ghp_test")
-        fake = FakeTransport({
-            f"{API}/repos/microsoft/vscode/releases/latest": make_json_response(200, {"tag_name": "1.0.0"}),
-        })
+        transport = Transport(github_token="ghp_test")  # noqa: S106 — test fixture
+        fake = FakeTransport(
+            {
+                f"{API}/repos/microsoft/vscode/releases/latest": make_json_response(
+                    200, {"tag_name": "1.0.0"}
+                ),
+            }
+        )
         headers = github_headers(transport)
         fake.get(f"{API}/repos/microsoft/vscode/releases/latest", headers)
         self.assertEqual(fake.calls[0][1]["Authorization"], "Bearer ghp_test")

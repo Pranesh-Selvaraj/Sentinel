@@ -1,0 +1,7 @@
+# Every change to the repository requires review/approval from the owner.
+# This also makes branch protection's "require code owner review" effective:
+# the owner must sign off on every PR that touches any file.
+* @Pranesh-Selvaraj
+
+# CI configuration itself gets the same owner review, no exceptions.
+.github/ @Pranesh-Selvaraj

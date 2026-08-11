@@ -7,6 +7,8 @@ or JSON without duplication.
 
 from __future__ import annotations
 
+from typing import Self
+
 from sentinel.config import Settings, load_settings
 from sentinel.db import Database
 from sentinel.diffing import ChangeDetector
@@ -14,7 +16,7 @@ from sentinel.errors import FetchError, SentinelError, UsageError
 from sentinel.httpclient import Transport
 from sentinel.models import CheckResult, Source, UpdatePlan, UpdateResult
 from sentinel.monitors import get_monitor
-from sentinel.update import UpgradeReport, UpgradeService, SelfUpdateService
+from sentinel.update import SelfUpdateService, UpgradeReport, UpgradeService
 from sentinel.updaters import get_updaters
 from sentinel.util import utc_now
 from sentinel.watcher import Scheduler
@@ -23,7 +25,9 @@ from sentinel.watcher import Scheduler
 class SentinelApp:
     """Orchestrates Sentinel's services. Persistence via SQLite."""
 
-    def __init__(self, config_dir=None, settings: Settings | None = None, transport: Transport | None = None) -> None:
+    def __init__(
+        self, config_dir=None, settings: Settings | None = None, transport: Transport | None = None
+    ) -> None:
         self.settings = settings or load_settings(config_dir)
         self.db = Database(self.settings.db_path)
         self.transport = transport or Transport(
@@ -36,7 +40,7 @@ class SentinelApp:
     def close(self) -> None:
         self.db.close()
 
-    def __enter__(self) -> "SentinelApp":
+    def __enter__(self) -> Self:
         return self
 
     def __exit__(self, *exc) -> None:
@@ -67,7 +71,7 @@ class SentinelApp:
                 return None  # looks fine
         except FetchError as exc:
             if getattr(exc, "status", None) == 404:
-                raise UsageError(f"GitHub repository not found: {repo}")
+                raise UsageError(f"GitHub repository not found: {repo}") from exc
             return f"could not verify {repo} on GitHub ({exc.friendly()}) — added anyway"
         return None
 
@@ -101,10 +105,7 @@ class SentinelApp:
     # -- checking ---------------------------------------------------------
     def check(self, refs: list[str] | None = None) -> list[CheckResult]:
         """Check sources, persist snapshots/changes, and return per-source results."""
-        if refs:
-            sources = [self.resolve(ref) for ref in refs]
-        else:
-            sources = self.db.list_sources(enabled_only=True)
+        sources = [self.resolve(ref) for ref in refs] if refs else self.db.list_sources(enabled_only=True)
         if not sources:
             raise UsageError("no sources configured — run 'sentinel add' first")
 
@@ -121,7 +122,7 @@ class SentinelApp:
         except (FetchError, SentinelError) as exc:
             self._record_failure(source, exc, now)
             return CheckResult(source, ok=False, error=exc.friendly())
-        except Exception as exc:  # never let one source crash a run
+        except Exception as exc:  # noqa: BLE001 — never let one source crash a run
             self._record_failure(source, exc, now)
             return CheckResult(source, ok=False, error=f"unexpected error: {type(exc).__name__}: {exc}")
 
@@ -131,7 +132,11 @@ class SentinelApp:
 
         if first or changes:
             self.db.record_snapshot(
-                source.id, observation.fetched_at or now, observation.value, observation.state, observation.raw
+                source.id,
+                observation.fetched_at or now,
+                observation.value,
+                observation.state,
+                observation.raw,
             )
         if changes:
             self.db.record_changes(source.id, now, changes)
@@ -141,7 +146,7 @@ class SentinelApp:
             recovered = ChangeDetector.availability(False, True)
             if recovered:
                 self.db.record_changes(source.id, now, [recovered])
-                changes = [recovered] + changes
+                changes = [recovered, *changes]
 
         self.db.record_check(source.id, now, True, None)
         self.db.set_check_result(source.id, True, None, now)
@@ -202,9 +207,7 @@ class SentinelApp:
         return {
             "source": source,
             "snapshot": snapshot,
-            "changes": [
-                {"detected_at": c.detected_at, **c.change.to_dict()} for c in changes
-            ],
+            "changes": [{"detected_at": c.detected_at, **c.change.to_dict()} for c in changes],
         }
 
     # -- watch / update / upgrade ----------------------------------------
@@ -219,10 +222,7 @@ class SentinelApp:
 
     def upgrade(self, refs: list[str] | None = None) -> UpgradeReport:
         """Plan updates for all sources (or the selected ones). Never mutates."""
-        if refs:
-            sources = [self.resolve(ref) for ref in refs]
-        else:
-            sources = self.db.list_sources(enabled_only=True)
+        sources = [self.resolve(ref) for ref in refs] if refs else self.db.list_sources(enabled_only=True)
         if not sources:
             raise UsageError("no sources configured — run 'sentinel add' first")
         return UpgradeService(self.transport).plan_all(sources)

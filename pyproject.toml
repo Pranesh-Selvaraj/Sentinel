@@ -24,3 +24,21 @@ sentinel = "sentinel.cli:main"
 
 [tool.setuptools]
 packages = ["sentinel", "sentinel.monitors"]
+
+[tool.ruff]
+target-version = "py311"
+line-length = 110
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM", "RUF", "S", "BLE", "FURB", "DTZ"]
+ignore = [
+    "S101",   # asserts are fine in tests
+    "S311",   # random jitter in retry backoff is intentional
+    "DTZ005", # watch-mode timestamps intentionally use local time
+    "RUF001", # deliberate Unicode arrows in the TUI
+]
+
+[tool.ruff.lint.per-file-ignores]
+# Registration imports after class definitions are intentional (side effects).
+"sentinel/monitors/__init__.py" = ["E402"]
+"sentinel/updaters/__init__.py" = ["E402"]

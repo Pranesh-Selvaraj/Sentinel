@@ -71,7 +71,11 @@ class UpgradeService:
                     plan = updater.plan(source, self.transport)
                 except (FetchError, SentinelError) as exc:
                     report.skipped.append(
-                        {"name": source.name, "kind": source.kind, "reason": f"could not check: {exc.friendly()}"}
+                        {
+                            "name": source.name,
+                            "kind": source.kind,
+                            "reason": f"could not check: {exc.friendly()}",
+                        }
                     )
                     continue
                 if plan is None:
@@ -93,7 +97,9 @@ class UpgradeService:
     @staticmethod
     def _not_applicable_reason(source: Source) -> str:
         if source.kind == "github":
-            return "no install path — re-add with 'sentinel add github … --install-path DIR' to enable updates"
+            return (
+                "no install path — re-add with 'sentinel add github … --install-path DIR' to enable updates"
+            )
         return "not updatable"
 
 

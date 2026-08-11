@@ -21,8 +21,11 @@ class GitHubReleaseUpdaterTests(unittest.TestCase):
         self.updater = GitHubReleaseUpdater()
         self.transport = FakeTransport()
 
-        self.asset = {"name": "tool-linux-x64.tar.gz", "size": 1024,
-                      "browser_download_url": "https://downloads.acme/tool-linux-x64.tar.gz"}
+        self.asset = {
+            "name": "tool-linux-x64.tar.gz",
+            "size": 1024,
+            "browser_download_url": "https://downloads.acme/tool-linux-x64.tar.gz",
+        }
         self.release = {"tag_name": "1.103.0", "name": "1.103.0", "assets": [self.asset]}
 
     def src(self, **overrides) -> Source:
@@ -61,13 +64,21 @@ class GitHubReleaseUpdaterTests(unittest.TestCase):
         self.assertEqual(plan.checksums["tool-linux-x64.tar.gz"]["algo"], "sha256")
 
     def test_plan_verified_via_sumfile(self):
-        asset2 = {"name": "tool-linux-arm64.tar.gz", "size": 512,
-                  "browser_download_url": "https://downloads.acme/tool-linux-arm64.tar.gz"}
+        asset2 = {
+            "name": "tool-linux-arm64.tar.gz",
+            "size": 512,
+            "browser_download_url": "https://downloads.acme/tool-linux-arm64.tar.gz",
+        }
         digest = hashlib.sha256(b"artifact-bytes").hexdigest()
-        self.release["assets"] = [self.asset, asset2, {
-            "name": "SHA256SUMS", "size": 128,
-            "browser_download_url": "https://downloads.acme/SHA256SUMS",
-        }]
+        self.release["assets"] = [
+            self.asset,
+            asset2,
+            {
+                "name": "SHA256SUMS",
+                "size": 128,
+                "browser_download_url": "https://downloads.acme/SHA256SUMS",
+            },
+        ]
         self.route_release()
         self.transport.route(
             "https://downloads.acme/SHA256SUMS",
@@ -81,10 +92,13 @@ class GitHubReleaseUpdaterTests(unittest.TestCase):
     def test_plan_verified_via_jq_style_sumfile(self):
         """jq names its manifest `sha256sum.txt` (singular) — must be found."""
         digest = hashlib.sha256(b"artifact-bytes").hexdigest()
-        self.release["assets"].append({
-            "name": "sha256sum.txt", "size": 128,
-            "browser_download_url": "https://downloads.acme/sha256sum.txt",
-        })
+        self.release["assets"].append(
+            {
+                "name": "sha256sum.txt",
+                "size": 128,
+                "browser_download_url": "https://downloads.acme/sha256sum.txt",
+            }
+        )
         self.route_release()
         self.transport.route(
             "https://downloads.acme/sha256sum.txt",
@@ -116,8 +130,10 @@ class GitHubReleaseUpdaterTests(unittest.TestCase):
 
     def test_plan_no_install_path_returns_none(self):
         self.route_release()
-        plan = self.updater.plan(Source(id=1, kind="github", name="tool",
-                                        config={"repo": "acme/tool", "monitor": "release"}), self.transport)
+        plan = self.updater.plan(
+            Source(id=1, kind="github", name="tool", config={"repo": "acme/tool", "monitor": "release"}),
+            self.transport,
+        )
         self.assertIsNone(plan)
 
     def test_plan_no_assets_is_noop(self):
@@ -183,7 +199,10 @@ class GitHubReleaseUpdaterTests(unittest.TestCase):
 
 class UpgradeServiceTests(unittest.TestCase):
     def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.tmp.cleanup)
         self.transport = FakeTransport()
+        self.install_dir = self.tmp.name
 
     def src(self, kind: str, name: str, config: dict) -> Source:
         return Source(id=1, kind=kind, name=name, config=config)
@@ -203,12 +222,19 @@ class UpgradeServiceTests(unittest.TestCase):
         self.assertIn("--install-path", report.skipped[0]["reason"])
 
     def test_fetch_failure_skipped_not_crash(self):
-        transport = FakeTransport({
-            f"{GITHUB_API}/releases/latest": FetchTimeout("github", 3),
-        })
+        transport = FakeTransport(
+            {
+                f"{GITHUB_API}/releases/latest": FetchTimeout("github", 3),
+            }
+        )
         report = UpgradeService(transport).plan_all(
-            [self.src("github", "tool", {"repo": "acme/tool", "monitor": "release",
-                                         "install_path": "/tmp/x"})]
+            [
+                self.src(
+                    "github",
+                    "tool",
+                    {"repo": "acme/tool", "monitor": "release", "install_path": self.install_dir},
+                )
+            ]
         )
         self.assertEqual(report.plans, [])
         self.assertIn("could not check", report.skipped[0]["reason"])
@@ -231,20 +257,33 @@ class AppUpgradeTests(unittest.TestCase):
         self.transport.route(GITHUB_API, make_json_response(200, {"full_name": "acme/tool"}))
         self.transport.route(
             f"{GITHUB_API}/releases/latest",
-            make_json_response(200, {
-                "tag_name": "1.103.0", "name": "1.103.0",
-                "assets": [
-                    {"name": "tool.tar.gz", "size": 10,
-                     "browser_download_url": "https://downloads.acme/tool.tar.gz"},
-                    {"name": "tool.tar.gz.sha256", "size": 64,
-                     "browser_download_url": "https://downloads.acme/tool.tar.gz.sha256"},
-                ],
-            }),
+            make_json_response(
+                200,
+                {
+                    "tag_name": "1.103.0",
+                    "name": "1.103.0",
+                    "assets": [
+                        {
+                            "name": "tool.tar.gz",
+                            "size": 10,
+                            "browser_download_url": "https://downloads.acme/tool.tar.gz",
+                        },
+                        {
+                            "name": "tool.tar.gz.sha256",
+                            "size": 64,
+                            "browser_download_url": "https://downloads.acme/tool.tar.gz.sha256",
+                        },
+                    ],
+                },
+            ),
         )
         self.transport.route("https://downloads.acme/tool.tar.gz", make_response(200, b"payload"))
         self.transport.route("https://downloads.acme/tool.tar.gz.sha256", make_response(200, digest))
-        self.app.add("github", {"repo": "acme/tool", "monitor": "release",
-                                "install_path": str(self.install_path)}, name=name)
+        self.app.add(
+            "github",
+            {"repo": "acme/tool", "monitor": "release", "install_path": str(self.install_path)},
+            name=name,
+        )
 
     def test_upgrade_plans_and_apply_records_audit(self):
         self.add_updatable_source()
@@ -266,7 +305,9 @@ class AppUpgradeTests(unittest.TestCase):
         self.assertEqual(report.plans[0].tool, "tool")
 
     def test_upgrade_unknown_ref_raises(self):
-        with self.assertRaises(Exception):
+        from sentinel.errors import UsageError
+
+        with self.assertRaises(UsageError):
             self.app.upgrade(["nope"])
 
 

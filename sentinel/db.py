@@ -17,6 +17,7 @@ from __future__ import annotations
 import json
 import sqlite3
 from pathlib import Path
+from typing import Self
 
 from sentinel.diffing import Change
 from sentinel.models import Snapshot, Source, StoredChange
@@ -101,7 +102,7 @@ class Database:
     def close(self) -> None:
         self.conn.close()
 
-    def __enter__(self) -> "Database":
+    def __enter__(self) -> Self:
         return self
 
     def __exit__(self, *exc) -> None:
@@ -160,7 +161,9 @@ class Database:
         )
 
     # -- snapshots --------------------------------------------------------
-    def record_snapshot(self, source_id: int, observed_at: str, value: str | None, state: dict, raw: str | None) -> int:
+    def record_snapshot(
+        self, source_id: int, observed_at: str, value: str | None, state: dict, raw: str | None
+    ) -> int:
         cur = self.conn.execute(
             "INSERT INTO snapshots (source_id, observed_at, value, state, raw) VALUES (?, ?, ?, ?, ?)",
             (source_id, observed_at, value, json.dumps(state, sort_keys=True), raw),
@@ -197,16 +200,25 @@ class Database:
     def record_changes(self, source_id: int, detected_at: str, changes: list[Change]) -> None:
         for c in changes:
             self.conn.execute(
-                "INSERT INTO changes (source_id, detected_at, kind, previous, current, description, severity, data)"
-                " VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
-                (source_id, detected_at, c.kind, c.previous, c.current, c.description, c.severity,
-                 json.dumps(c.data, sort_keys=True)),
+                "INSERT INTO changes (source_id, detected_at, kind, previous, current, "
+                "description, severity, data) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+                (
+                    source_id,
+                    detected_at,
+                    c.kind,
+                    c.previous,
+                    c.current,
+                    c.description,
+                    c.severity,
+                    json.dumps(c.data, sort_keys=True),
+                ),
             )
         self.conn.commit()
 
     def list_changes(self, source_id: int | None = None, limit: int = 50) -> list[StoredChange]:
+        # Static fragments only; all values go through `?` placeholders.
         q = (
-            "SELECT * FROM changes"
+            "SELECT * FROM changes"  # noqa: S608  # nosec B608 — static SQL, values are `?`-bound
             + (" WHERE source_id = ?" if source_id is not None else "")
             + " ORDER BY detected_at DESC, id DESC LIMIT ?"
         )
@@ -233,11 +245,19 @@ class Database:
         return rows[0] if rows else None
 
     # -- updates (future `sentinel upgrade` audit trail) ------------------
-    def record_update(self, source_id: int | None, tool: str, installed: str | None, latest: str | None,
-                      source_url: str | None, performed_at: str, status: str) -> None:
+    def record_update(
+        self,
+        source_id: int | None,
+        tool: str,
+        installed: str | None,
+        latest: str | None,
+        source_url: str | None,
+        performed_at: str,
+        status: str,
+    ) -> None:
         self.conn.execute(
-            "INSERT INTO updates (source_id, tool, installed_version, latest_version, source_url, performed_at, status)"
-            " VALUES (?, ?, ?, ?, ?, ?, ?)",
+            "INSERT INTO updates (source_id, tool, installed_version, latest_version, "
+            "source_url, performed_at, status) VALUES (?, ?, ?, ?, ?, ?, ?)",
             (source_id, tool, installed, latest, source_url, performed_at, status),
         )
         self.conn.commit()

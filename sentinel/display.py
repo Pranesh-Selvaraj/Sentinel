@@ -6,12 +6,13 @@ No business logic lives here, only presentation.
 
 from __future__ import annotations
 
+from pathlib import Path
+
 from sentinel.diffing import render_change
 from sentinel.models import CheckResult, Source
 from sentinel.monitors import get_monitor
 from sentinel.term import Output, type_label
 from sentinel.util import human_size, local_time, mask_secrets, safe_component
-from pathlib import Path
 
 
 def display_added(out: Output, source: Source, warnings: list[str]) -> None:
@@ -162,7 +163,11 @@ def display_show(out: Output, data: dict) -> None:
     if changes:
         out.print("  Recent changes:")
         for c in changes:
-            out.print(f"    {local_time(c['detected_at'])}  [{c['kind']}] {c['previous']} → {c['current']} {c['description']}".rstrip())
+            line = (
+                f"    {local_time(c['detected_at'])}  [{c['kind']}] "
+                f"{c['previous']} → {c['current']} {c['description']}"
+            ).rstrip()
+            out.print(line)
     else:
         out.print(out.dim("  No changes recorded yet."))
 
@@ -181,7 +186,9 @@ def display_history(out: Output, data: dict) -> None:
         value = monitor.format_value(source, snap["value"])
         out.print(f"{when:<12} {value}")
     out.print()
-    out.print(out.dim(f"{len(snapshots)} observation{'s' if len(snapshots) != 1 else ''} (most recent first)"))
+    out.print(
+        out.dim(f"{len(snapshots)} observation{'s' if len(snapshots) != 1 else ''} (most recent first)")
+    )
 
 
 def display_watch_tick(out: Output, results: list[CheckResult], tick_number: int) -> None:
@@ -191,9 +198,11 @@ def display_watch_tick(out: Output, results: list[CheckResult], tick_number: int
     failed = sum(1 for r in results if not r.ok)
     stamp = out.dim(f"[{clock_time()}]")
     if failed:
-        out.print(f"{stamp} {out.err(f'{out.err_sym} {failed} source{"s" if failed != 1 else ""} failed')}")
+        plural = "" if failed == 1 else "s"
+        out.print(f"{stamp} {out.err(f'{out.err_sym} {failed} source{plural} failed')}")
     elif changes:
-        out.print(f"{stamp} {out.warn(f'{out.warn_sym} {changes} change{"s" if changes != 1 else ""} detected')}")
+        plural = "" if changes == 1 else "s"
+        out.print(f"{stamp} {out.warn(f'{out.warn_sym} {changes} change{plural} detected')}")
     else:
         out.print(f"{stamp} {out.ok(f'{out.ok_sym} No changes')}")
 

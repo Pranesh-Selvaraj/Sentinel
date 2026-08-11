@@ -40,7 +40,9 @@ class CliTestCase(unittest.TestCase):
             f"{GITHUB_API}/releases/latest",
             make_json_response(200, {"tag_name": "1.102.0", "name": "1.102.0", "assets": []}),
         )
-        return self.run_cli("add", "github", "microsoft/vscode", "--monitor", "release", "--config-dir", str(self.dir))
+        return self.run_cli(
+            "add", "github", "microsoft/vscode", "--monitor", "release", "--config-dir", str(self.dir)
+        )
 
     def test_no_arguments_shows_help(self):
         code = self.run_cli()
@@ -101,18 +103,14 @@ class CliTestCase(unittest.TestCase):
 
     def test_check_failure_exit_code(self):
         self.add_vscode()
-        self.transport.route(
-            f"{GITHUB_API}/releases/latest", FetchTimeout("github", 3)
-        )
+        self.transport.route(f"{GITHUB_API}/releases/latest", FetchTimeout("github", 3))
         code = self.run_cli("check", "--config-dir", str(self.dir))
         self.assertEqual(code, 2)
         self.assertIn("timeout", self.stdout.getvalue().lower())
 
     def test_check_exit_zero_flag(self):
         self.add_vscode()
-        self.transport.route(
-            f"{GITHUB_API}/releases/latest", FetchTimeout("github", 3)
-        )
+        self.transport.route(f"{GITHUB_API}/releases/latest", FetchTimeout("github", 3))
         code = self.run_cli("check", "--exit-zero", "--config-dir", str(self.dir))
         self.assertEqual(code, 0)
 
@@ -121,7 +119,9 @@ class CliTestCase(unittest.TestCase):
         code = self.run_cli("remove", "microsoft/vscode", "--config-dir", str(self.dir))
         self.assertEqual(code, 1)
         self.assertIn("--yes", self.stdout.getvalue())
-        self.assertEqual(self.run_cli("remove", "microsoft/vscode", "--yes", "--config-dir", str(self.dir)), 0)
+        self.assertEqual(
+            self.run_cli("remove", "microsoft/vscode", "--yes", "--config-dir", str(self.dir)), 0
+        )
         self.assertIn("Removed", self.stdout.getvalue())
 
     def test_unknown_source_error(self):
@@ -153,20 +153,39 @@ class CliTestCase(unittest.TestCase):
         self.transport.route(f"{GITHUB_API}", make_json_response(200, {"full_name": "microsoft/vscode"}))
         self.transport.route(
             f"{GITHUB_API}/releases/latest",
-            make_json_response(200, {
-                "tag_name": "1.103.0", "name": "1.103.0",
-                "assets": [
-                    {"name": "code.tar.gz", "size": 1000,
-                     "browser_download_url": "https://downloads.acme/code.tar.gz"},
-                    {"name": "code.tar.gz.sha256", "size": 64,
-                     "browser_download_url": "https://downloads.acme/code.tar.gz.sha256"},
-                ],
-            }),
+            make_json_response(
+                200,
+                {
+                    "tag_name": "1.103.0",
+                    "name": "1.103.0",
+                    "assets": [
+                        {
+                            "name": "code.tar.gz",
+                            "size": 1000,
+                            "browser_download_url": "https://downloads.acme/code.tar.gz",
+                        },
+                        {
+                            "name": "code.tar.gz.sha256",
+                            "size": 64,
+                            "browser_download_url": "https://downloads.acme/code.tar.gz.sha256",
+                        },
+                    ],
+                },
+            ),
         )
         self.transport.route("https://downloads.acme/code.tar.gz", make_response(200, b"release-bytes"))
         self.transport.route("https://downloads.acme/code.tar.gz.sha256", make_response(200, digest))
-        self.run_cli("add", "github", "microsoft/vscode", "--monitor", "release",
-                     "--install-path", str(install_path), "--config-dir", str(self.dir))
+        self.run_cli(
+            "add",
+            "github",
+            "microsoft/vscode",
+            "--monitor",
+            "release",
+            "--install-path",
+            str(install_path),
+            "--config-dir",
+            str(self.dir),
+        )
         return str(install_path)
 
     def test_upgrade_dry_run_shows_plan(self):
@@ -213,15 +232,33 @@ class CliTestCase(unittest.TestCase):
         self.transport.route(f"{GITHUB_API}", make_json_response(200, {"full_name": "microsoft/vscode"}))
         self.transport.route(
             f"{GITHUB_API}/releases/latest",
-            make_json_response(200, {
-                "tag_name": "1.103.0", "name": "1.103.0",
-                "assets": [{"name": "code.tar.gz", "size": 1000,
-                             "browser_download_url": "https://downloads.acme/code.tar.gz"}],
-            }),
+            make_json_response(
+                200,
+                {
+                    "tag_name": "1.103.0",
+                    "name": "1.103.0",
+                    "assets": [
+                        {
+                            "name": "code.tar.gz",
+                            "size": 1000,
+                            "browser_download_url": "https://downloads.acme/code.tar.gz",
+                        }
+                    ],
+                },
+            ),
         )
         self.transport.route("https://downloads.acme/code.tar.gz", make_response(200, b"release-bytes"))
-        self.run_cli("add", "github", "microsoft/vscode", "--monitor", "release",
-                     "--install-path", str(install_path), "--config-dir", str(self.dir))
+        self.run_cli(
+            "add",
+            "github",
+            "microsoft/vscode",
+            "--monitor",
+            "release",
+            "--install-path",
+            str(install_path),
+            "--config-dir",
+            str(self.dir),
+        )
         self.stdout.seek(0)
         self.stdout.truncate()
         code = self.run_cli("upgrade", "--yes", "--config-dir", str(self.dir))
@@ -231,14 +268,23 @@ class CliTestCase(unittest.TestCase):
 
     def test_add_http(self):
         self.transport.route("https://example.com", make_response(200, b"<title>Example</title>"))
-        code = self.run_cli("add", "http", "https://example.com", "--name", "Example", "--config-dir", str(self.dir))
+        code = self.run_cli(
+            "add", "http", "https://example.com", "--name", "Example", "--config-dir", str(self.dir)
+        )
         self.assertEqual(code, 0)
         self.assertIn("Added Example", self.stdout.getvalue())
 
     def test_add_api_with_headers(self):
         code = self.run_cli(
-            "add", "api", "https://api.example.com/version", "--jpath", "$.version",
-            "--header", "X-Api-Key=${API_KEY}", "--config-dir", str(self.dir),
+            "add",
+            "api",
+            "https://api.example.com/version",
+            "--jpath",
+            "$.version",
+            "--header",
+            "X-Api-Key=${API_KEY}",
+            "--config-dir",
+            str(self.dir),
         )
         self.assertEqual(code, 0)
         self.assertIn("Added api.example.com", self.stdout.getvalue())

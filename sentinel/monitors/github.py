@@ -46,10 +46,7 @@ class GitHubMonitor(Monitor):
             if "/" in repo and len(repo.split("/")) == 2:
                 break
             print("Expected owner/name, e.g. microsoft/vscode")
-        if default_monitor:
-            monitor = default_monitor
-        else:
-            monitor = select("Monitor", ["Releases", "Tags", "Commits"]).lower()
+        monitor = default_monitor or select("Monitor", ["Releases", "Tags", "Commits"]).lower()
         return {"repo": repo, "monitor": monitor}
 
     # -- fetch ------------------------------------------------------------
@@ -154,6 +151,6 @@ class GitHubMonitor(Monitor):
 
 
 # Register the monitor.
-from sentinel.monitors import _registry  # noqa: E402
+from sentinel.monitors import _registry  # noqa: E402 — registration side effect
 
 _registry.register(GitHubMonitor)

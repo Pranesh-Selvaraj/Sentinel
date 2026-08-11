@@ -7,7 +7,7 @@ import hashlib
 import json
 import re
 
-UTC = dt.timezone.utc
+UTC = dt.UTC
 
 
 def utc_now() -> str:
@@ -20,7 +20,7 @@ def local_time(iso: str | None, fmt: str = "%b %d %H:%M", include_year: bool = F
     if not iso:
         return "—"
     try:
-        parsed = dt.datetime.fromisoformat(iso.replace("Z", "+00:00"))
+        parsed = dt.datetime.fromisoformat(iso)
     except ValueError:
         return iso
     local = parsed.astimezone()
@@ -96,16 +96,11 @@ def resolve_jpath(data, path: str | None):
         return data
     if path.startswith("$."):
         path = path[2:]
-    elif path.startswith("$["):
-        path = path[1:]
-    elif path.startswith("$"):
+    elif path.startswith("$[") or path.startswith("$"):
         path = path[1:]
     cur = data
     for raw_tok in _JSON_PATH_TOKEN.findall(path):
-        if raw_tok.startswith("["):
-            tok = raw_tok[1:-1]
-        else:
-            tok = raw_tok
+        tok = raw_tok[1:-1] if raw_tok.startswith("[") else raw_tok
         if isinstance(cur, dict) and tok in cur:
             cur = cur[tok]
         elif isinstance(cur, list) and tok.isdigit() and int(tok) < len(cur):
@@ -130,7 +125,9 @@ def mask_secrets(config: dict) -> dict:
             out[k] = mask_secrets(v)
         elif isinstance(v, list):
             out[k] = [mask_secrets(item) if isinstance(item, dict) else item for item in v]
-        elif isinstance(v, str) and not v.startswith("${") and any(s in k.lower() for s in _SECRET_KEYS) and v:
+        elif (
+            isinstance(v, str) and not v.startswith("${") and any(s in k.lower() for s in _SECRET_KEYS) and v
+        ):
             out[k] = "***"
         else:
             out[k] = v

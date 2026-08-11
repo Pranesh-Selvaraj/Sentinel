@@ -10,8 +10,8 @@ in the ``updates`` audit table (via the application layer).
 
 from __future__ import annotations
 
+import contextlib
 import fnmatch
-import re
 from pathlib import Path
 
 from sentinel.errors import FetchError
@@ -38,8 +38,11 @@ class GitHubReleaseUpdater(Updater, VersionProvider):
         config = source.config
         if config.get("monitor") != "release":
             return UpdatePlan(
-                tool=source.name, source=source, kind=self.kind,
-                noop=True, noop_reason="only release monitors can be updated",
+                tool=source.name,
+                source=source,
+                kind=self.kind,
+                noop=True,
+                noop_reason="only release monitors can be updated",
             )
         install_path = (config.get("install_path") or "").strip()
         if not install_path:
@@ -49,15 +52,22 @@ class GitHubReleaseUpdater(Updater, VersionProvider):
         latest = state.get("tag")
         if not latest:
             return UpdatePlan(
-                tool=source.name, source=source, kind=self.kind,
-                noop=True, noop_reason="no releases yet",
+                tool=source.name,
+                source=source,
+                kind=self.kind,
+                noop=True,
+                noop_reason="no releases yet",
             )
         installed = self._installed_version(install_path)
         if installed == latest:
             return UpdatePlan(
-                tool=source.name, source=source, kind=self.kind,
-                installed_version=installed, latest_version=latest,
-                noop=True, noop_reason=f"already up to date ({latest})",
+                tool=source.name,
+                source=source,
+                kind=self.kind,
+                installed_version=installed,
+                latest_version=latest,
+                noop=True,
+                noop_reason=f"already up to date ({latest})",
             )
 
         assets = [
@@ -67,18 +77,20 @@ class GitHubReleaseUpdater(Updater, VersionProvider):
         ]
         if not assets:
             return UpdatePlan(
-                tool=source.name, source=source, kind=self.kind,
-                installed_version=installed, latest_version=latest,
-                noop=True, noop_reason="release has no downloadable assets",
+                tool=source.name,
+                source=source,
+                kind=self.kind,
+                installed_version=installed,
+                latest_version=latest,
+                noop=True,
+                noop_reason="release has no downloadable assets",
             )
         patterns = [p for p in (config.get("assets") or []) if p]
         selected = self._select_assets(assets, patterns)
 
         checksums, note = find_checksums(selected, assets, transport)
         version_dir = Path(install_path).expanduser() / safe_component(latest)
-        actions = [
-            f"download {a.name} ({human_size(a.size)}) → {version_dir}/" for a in selected
-        ]
+        actions = [f"download {a.name} ({human_size(a.size)}) → {version_dir}/" for a in selected]
         return UpdatePlan(
             tool=source.name,
             source=source,
@@ -102,8 +114,12 @@ class GitHubReleaseUpdater(Updater, VersionProvider):
 
         if patterns:
             picked = [
-                a for a in assets
-                if any(fnmatch.fnmatch(a.name.lower(), p.lower()) or p.lower() in a.name.lower() for p in patterns)
+                a
+                for a in assets
+                if any(
+                    fnmatch.fnmatch(a.name.lower(), p.lower()) or p.lower() in a.name.lower()
+                    for p in patterns
+                )
             ]
             return picked
         # No pattern: never auto-select checksum/signature files; pick the
@@ -118,10 +134,8 @@ class GitHubReleaseUpdater(Updater, VersionProvider):
     @staticmethod
     def _cleanup(dest: Path) -> None:
         """Remove a freshly created, still-empty version directory on failure."""
-        try:
+        with contextlib.suppress(OSError):
             dest.rmdir()  # only succeeds when empty
-        except OSError:
-            pass
 
     @staticmethod
     def _installed_version(install_path: str) -> str | None:
@@ -156,7 +170,9 @@ class GitHubReleaseUpdater(Updater, VersionProvider):
         try:
             dest.mkdir(parents=True, exist_ok=True)
         except OSError as exc:
-            return UpdateResult(source=plan.source, ok=False, message=f"cannot create {dest}: {exc}", status="failed")
+            return UpdateResult(
+                source=plan.source, ok=False, message=f"cannot create {dest}: {exc}", status="failed"
+            )
 
         downloaded: list[str] = []
         for asset in plan.assets:
@@ -168,22 +184,28 @@ class GitHubReleaseUpdater(Updater, VersionProvider):
             except FetchError as exc:
                 self._cleanup(dest)
                 return UpdateResult(
-                    source=plan.source, ok=False,
-                    message=f"download failed for {filename}: {exc.friendly()}", status="failed",
+                    source=plan.source,
+                    ok=False,
+                    message=f"download failed for {filename}: {exc.friendly()}",
+                    status="failed",
                 )
             expected = plan.checksums.get(asset.name)
             if expected and not verify_bytes(resp.body, expected):
                 self._cleanup(dest)
                 return UpdateResult(
-                    source=plan.source, ok=False,
-                    message=f"checksum mismatch for {filename} — download discarded", status="failed",
+                    source=plan.source,
+                    ok=False,
+                    message=f"checksum mismatch for {filename} — download discarded",
+                    status="failed",
                 )
             target = dest / filename
             try:
                 target.write_bytes(resp.body)
             except OSError as exc:
                 self._cleanup(dest)
-                return UpdateResult(source=plan.source, ok=False, message=f"cannot write {target}: {exc}", status="failed")
+                return UpdateResult(
+                    source=plan.source, ok=False, message=f"cannot write {target}: {exc}", status="failed"
+                )
             downloaded.append(str(target))
 
         if not downloaded:
@@ -191,10 +213,8 @@ class GitHubReleaseUpdater(Updater, VersionProvider):
             return UpdateResult(source=plan.source, ok=False, message="no assets matched", status="failed")
 
         marker = Path(plan.install_path).expanduser() / MARKER_FILE
-        try:
+        with contextlib.suppress(OSError):
             marker.write_text(f"{plan.latest_version}\n")
-        except OSError:
-            pass
         return UpdateResult(
             source=plan.source,
             ok=True,

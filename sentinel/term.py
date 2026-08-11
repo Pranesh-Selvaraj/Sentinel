@@ -116,7 +116,7 @@ def _select_plain(title: str, options: list[str], out: Output) -> str:
         try:
             raw = input(f"Select (1-{len(options)}): ")
         except (EOFError, KeyboardInterrupt):
-            raise AbortError("aborted")
+            raise AbortError("aborted") from None
         if raw.strip().isdigit() and 1 <= int(raw.strip()) <= len(options):
             return options[int(raw.strip()) - 1]
         out.print(f"Invalid choice: {raw!r}")
@@ -196,7 +196,7 @@ def input_text(prompt: str, default: str | None = None) -> str:
     try:
         raw = input(f"{prompt}{suffix}: ")
     except (EOFError, KeyboardInterrupt):
-        raise AbortError("aborted")
+        raise AbortError("aborted") from None
     if not raw.strip() and default is not None:
         return default
     return raw.strip()
@@ -208,7 +208,7 @@ def confirm(prompt: str, default: bool = False) -> bool:
     try:
         raw = input(f"{prompt}{suffix}: ")
     except (EOFError, KeyboardInterrupt):
-        raise AbortError("aborted")
+        raise AbortError("aborted") from None
     if not raw.strip():
         return default
     return raw.strip().lower() in ("y", "yes")
