@@ -108,6 +108,52 @@ class CliTestCase(unittest.TestCase):
         self.assertEqual(code, 2)
         self.assertIn("timeout", self.stdout.getvalue().lower())
 
+    def test_pypi_add_check_change_flow(self):
+        self.transport.route(
+            "https://pypi.org/pypi/requests/json",
+            make_json_response(
+                200,
+                {
+                    "info": {"name": "requests", "version": "2.32.3", "summary": ""},
+                    "urls": [{"upload_time_iso_8601": "2024-05-29T09:05:12Z"}],
+                },
+            ),
+        )
+        self.assertEqual(self.run_cli("add", "pypi", "requests", "--config-dir", str(self.dir)), 0)
+        self.assertIn("Added requests", self.stdout.getvalue())
+        self.assertIn("Monitoring: release", self.stdout.getvalue())
+
+        self.assertEqual(self.run_cli("check", "--config-dir", str(self.dir)), 0)
+        self.assertIn("2.32.3", self.stdout.getvalue())
+        self.assertIn("baseline", self.stdout.getvalue())
+
+        # a new release -> exit 1 with a version transition
+        self.transport.route(
+            "https://pypi.org/pypi/requests/json",
+            make_json_response(
+                200,
+                {
+                    "info": {"name": "requests", "version": "2.33.0", "summary": ""},
+                    "urls": [{"upload_time_iso_8601": "2025-01-15T10:00:00Z"}],
+                },
+            ),
+        )
+        code = self.run_cli("check", "--config-dir", str(self.dir))
+        self.assertEqual(code, 1)
+        output = self.stdout.getvalue()
+        self.assertIn("2.32.3 → 2.33.0", output)
+        self.assertIn("New release detected", output)
+
+        # list shows the PyPI type
+        self.assertEqual(self.run_cli("list", "--config-dir", str(self.dir)), 0)
+        self.assertIn("PyPI", self.stdout.getvalue())
+
+    def test_pypi_add_rejects_non_json(self):
+        self.transport.route("https://pypi.org/pypi/requests/json", make_response(200, "<html>"))
+        code = self.run_cli("add", "pypi", "requests", "--config-dir", str(self.dir))
+        self.assertEqual(code, 0)  # add succeeds; the first check reports the failure
+        self.assertEqual(self.run_cli("check", "--config-dir", str(self.dir)), 2)
+
     def test_check_exit_zero_flag(self):
         self.add_vscode()
         self.transport.route(f"{GITHUB_API}/releases/latest", FetchTimeout("github", 3))
