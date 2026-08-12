@@ -323,7 +323,8 @@ prints it for scripts.
 [sentinel]
 check_interval = "1h"   # default interval for `sentinel watch`
 timeout = 30            # seconds per request
-retries = 3             # retries on network errors / 5xx
+retries = 3             # retries on network errors / 5xx / 429
+retention_days = 90     # prune the per-attempt `checks` log older than this (0 = keep forever)
 
 [http]
 user_agent = "sentinel/0.1.0"

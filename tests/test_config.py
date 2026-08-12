@@ -42,8 +42,22 @@ class LoadSettingsTests(unittest.TestCase):
         self.assertEqual(settings.timeout, 30.0)
         self.assertEqual(settings.retries, 3)
         self.assertEqual(settings.check_interval, "1h")
+        self.assertEqual(settings.retention_days, 90)
         self.assertEqual(settings.db_path, self.dir / "sentinel.db")
         self.assertIsNone(settings.github_token)
+
+    def test_retention_days_parsed(self):
+        self.write_config("[sentinel]\nretention_days = 14\n")
+        self.assertEqual(load_settings(self.dir).retention_days, 14)
+
+    def test_retention_days_zero_keeps_history(self):
+        self.write_config("[sentinel]\nretention_days = 0\n")
+        self.assertEqual(load_settings(self.dir).retention_days, 0)
+
+    def test_negative_retention_rejected(self):
+        self.write_config("[sentinel]\nretention_days = -5\n")
+        with self.assertRaises(ConfigError):
+            load_settings(self.dir)
 
     def test_loads_toml(self):
         self.write_config(

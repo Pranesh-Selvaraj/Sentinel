@@ -30,6 +30,7 @@ class SentinelApp:
     ) -> None:
         self.settings = settings or load_settings(config_dir)
         self.db = Database(self.settings.db_path)
+        self.db.prune(self.settings.retention_days)
         self.transport = transport or Transport(
             timeout=self.settings.timeout,
             retries=self.settings.retries,

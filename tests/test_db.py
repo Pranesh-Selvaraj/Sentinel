@@ -70,6 +70,34 @@ class DatabaseTests(unittest.TestCase):
         rows = self.db.conn.execute("SELECT ok FROM checks WHERE source_id = ?", (sid,)).fetchall()
         self.assertEqual([r["ok"] for r in rows], [1, 0])
 
+    def test_prune_removes_old_checks_only(self):
+        sid = self.db.add_source("http", "A", {}, utc_now())
+        self.db.record_check(sid, "2020-01-01T00:00:00Z", True, None)
+        self.db.record_check(sid, utc_now(), True, None)
+        self.db.record_snapshot(sid, "2020-01-01T00:00:00Z", "200", {"status": 200}, None)
+        self.db.record_changes(sid, "2020-01-01T00:00:00Z", [Change("status", "200", "404")])
+
+        deleted = self.db.prune(retention_days=30)
+        self.assertEqual(deleted, 1)
+        rows = self.db.conn.execute("SELECT checked_at FROM checks").fetchall()
+        self.assertEqual(len(rows), 1)  # the recent one survives
+        # History and audit trail are never pruned.
+        self.assertIsNotNone(self.db.latest_snapshot(sid))
+        self.assertEqual(len(self.db.list_changes(sid)), 1)
+
+    def test_prune_zero_keeps_everything(self):
+        sid = self.db.add_source("http", "A", {}, utc_now())
+        self.db.record_check(sid, "2020-01-01T00:00:00Z", False, "x")
+        self.assertEqual(self.db.prune(retention_days=0), 0)
+        rows = self.db.conn.execute("SELECT * FROM checks").fetchall()
+        self.assertEqual(len(rows), 1)
+
+    def test_prune_returns_zero_when_nothing_to_delete(self):
+        sid = self.db.add_source("http", "A", {}, utc_now())
+        self.db.record_check(sid, utc_now(), True, None)
+        self.assertEqual(self.db.prune(retention_days=30), 0)
+        self.assertEqual(self.db.prune(retention_days=-1), 0)
+
     def test_delete_cascades(self):
         sid = self.db.add_source("http", "A", {}, utc_now())
         self.db.record_snapshot(sid, utc_now(), "200", {"status": 200}, None)
