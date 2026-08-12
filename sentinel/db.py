@@ -10,10 +10,14 @@ Schema (``PRAGMA user_version = 1``):
     changes    — detected changes with explanations
     checks     — one row per check attempt (ok/failed), for uptime stats
     updates    — future `sentinel upgrade` audit trail
+
+The per-attempt ``checks`` log is pruned on startup per ``retention_days``
+(see :meth:`Database.prune`); snapshots/changes/updates are kept.
 """
 
 from __future__ import annotations
 
+import datetime as dt
 import json
 import sqlite3
 from pathlib import Path
@@ -21,6 +25,7 @@ from typing import Self
 
 from sentinel.diffing import Change
 from sentinel.models import Snapshot, Source, StoredChange
+from sentinel.util import UTC
 
 SCHEMA_VERSION = 1
 
@@ -243,6 +248,25 @@ class Database:
     def latest_change(self, source_id: int) -> StoredChange | None:
         rows = self.list_changes(source_id, limit=1)
         return rows[0] if rows else None
+
+    # -- retention -------------------------------------------------------
+    def prune(self, retention_days: int) -> int:
+        """Delete per-attempt ``checks`` rows older than *retention_days*.
+
+        The checks table grows one row per check attempt per source — in
+        watch mode that is every interval — so it is pruned on startup.
+        History (``snapshots``/``changes``) and the ``updates`` audit trail
+        are kept: they are small and are the product's core value.
+        ``retention_days <= 0`` keeps everything.
+
+        Returns the number of deleted rows.
+        """
+        if retention_days <= 0:
+            return 0
+        cutoff = (dt.datetime.now(UTC) - dt.timedelta(days=retention_days)).strftime("%Y-%m-%dT%H:%M:%SZ")
+        cur = self.conn.execute("DELETE FROM checks WHERE checked_at < ?", (cutoff,))
+        self.conn.commit()
+        return int(cur.rowcount)
 
     # -- updates (future `sentinel upgrade` audit trail) ------------------
     def record_update(

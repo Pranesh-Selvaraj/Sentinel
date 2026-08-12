@@ -48,6 +48,7 @@ class Settings:
     timeout: float = 30.0
     retries: int = 3
     check_interval: str = "1h"
+    retention_days: int = 90
     user_agent: str = f"sentinel/{__version__}"
     github_token: str | None = None
     _raw: dict = field(default_factory=dict, repr=False)
@@ -63,6 +64,7 @@ class Settings:
             "timeout": self.timeout,
             "retries": self.retries,
             "check_interval": self.check_interval,
+            "retention_days": self.retention_days,
             "user_agent": self.user_agent,
             "github_token": "***" if self.github_token else None,
         }
@@ -96,6 +98,10 @@ def load_settings(config_dir: str | Path | None = None) -> Settings:
     if retries < 0:
         raise ConfigError("retries must be >= 0")
 
+    retention = int(sentinel_cfg.get("retention_days", 90))
+    if retention < 0:
+        raise ConfigError("retention_days must be >= 0 (0 keeps history forever)")
+
     token = os.environ.get("GITHUB_TOKEN") or github_cfg.get("token") or None
     user_agent = str(http_cfg.get("user_agent", f"sentinel/{__version__}"))
 
@@ -104,6 +110,7 @@ def load_settings(config_dir: str | Path | None = None) -> Settings:
         timeout=timeout,
         retries=retries,
         check_interval=interval,
+        retention_days=retention,
         user_agent=user_agent,
         github_token=token or None,
         _raw=raw,
