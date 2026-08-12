@@ -115,6 +115,12 @@ def build_parser() -> argparse.ArgumentParser:
     p_status = _add_parser("status", "Overview: sources, values, health")
     p_status.add_argument("--json", action="store_true", help="machine-readable output")
 
+    p_uptime = _add_parser("uptime", "Uptime statistics from the checks log")
+    p_uptime.add_argument(
+        "--days", type=int, default=30, help="window in days (0 = all history; default: 30)"
+    )
+    p_uptime.add_argument("--json", action="store_true", help="machine-readable output")
+
     p_show = _add_parser("show", "Show details of one source")
     p_show.add_argument("ref", help="source id, name, or unique name prefix")
     p_show.add_argument("--json", action="store_true", help="machine-readable output")
@@ -245,6 +251,14 @@ def run_command(args, app: SentinelApp, out: Output) -> int:
             out.print_json(data)
         else:
             display.display_status(out, data)
+        return 0
+
+    if args.command == "uptime":
+        data = app.uptime(days=args.days)
+        if args.json:
+            out.print_json(data)
+        else:
+            display.display_uptime(out, data)
         return 0
 
     if args.command == "show":

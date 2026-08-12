@@ -195,6 +195,28 @@ class CliTestCase(unittest.TestCase):
         self.assertEqual(self.run_cli("list", "--config-dir", str(self.dir)), 0)
         self.assertIn("npm", self.stdout.getvalue())
 
+    def test_uptime_command(self):
+        self.add_vscode()
+        self.assertEqual(self.run_cli("check", "--config-dir", str(self.dir)), 0)
+        self.transport.route(f"{GITHUB_API}/releases/latest", FetchTimeout("github", 3))
+        self.assertEqual(self.run_cli("check", "--config-dir", str(self.dir)), 2)
+
+        self.assertEqual(self.run_cli("uptime", "--days", "0", "--config-dir", str(self.dir)), 0)
+        output = self.stdout.getvalue()
+        self.assertIn("Uptime", output)
+        self.assertIn("microsoft/vscode", output)
+        self.assertIn("50.0%", output)
+
+        self.stdout.seek(0)
+        self.stdout.truncate()
+        self.assertEqual(self.run_cli("uptime", "--days", "0", "--json", "--config-dir", str(self.dir)), 0)
+        import json
+
+        payload = json.loads(self.stdout.getvalue())
+        self.assertEqual(payload["rows"][0]["total"], 2)
+        self.assertEqual(payload["rows"][0]["ok"], 1)
+        self.assertEqual(payload["overall"], 50.0)
+
     def test_check_exit_zero_flag(self):
         self.add_vscode()
         self.transport.route(f"{GITHUB_API}/releases/latest", FetchTimeout("github", 3))
