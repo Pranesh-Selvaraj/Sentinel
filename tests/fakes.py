@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import json
 
-from sentinel.errors import FetchError
+from sentinel.errors import FetchError, FetchInvalidJSON
 from sentinel.httpclient import Response
 
 
@@ -45,7 +45,11 @@ class FakeTransport:
         raise FetchError(f"no fake route for {url}")
 
     def get_json(self, url: str, headers: dict | None = None):
-        return json.loads(self.get(url, headers).body.decode("utf-8"))
+        # Mirror the real Transport: non-JSON bodies raise FetchInvalidJSON.
+        try:
+            return json.loads(self.get(url, headers).body.decode("utf-8"))
+        except (ValueError, UnicodeDecodeError):
+            raise FetchInvalidJSON(url) from None
 
     def route(self, url: str, response) -> FakeTransport:
         self.routes[url] = response

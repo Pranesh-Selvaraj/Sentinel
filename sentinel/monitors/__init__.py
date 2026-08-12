@@ -47,4 +47,4 @@ def monitor_kinds() -> list[str]:
 
 
 # Importing the submodules registers the built-in monitors.
-from sentinel.monitors import api, github, http  # noqa: F401 — registration side effects
+from sentinel.monitors import api, github, http, pypi  # noqa: F401 — registration side effects
