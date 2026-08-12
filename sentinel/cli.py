@@ -93,6 +93,10 @@ def build_parser() -> argparse.ArgumentParser:
     p_pypi.add_argument("name", help="package name, e.g. requests")
     p_pypi.add_argument("--name", help="display name (default: package name)")
 
+    p_npm = add_sub.add_parser("npm", help="monitor an npm package", parents=[common], allow_abbrev=False)
+    p_npm.add_argument("name", help="package name, e.g. express")
+    p_npm.add_argument("--name", help="display name (default: package name)")
+
     # -- other commands ---------------------------------------------------
     p_remove = _add_parser("remove", "Remove a source")
     p_remove.add_argument("ref", help="source id, name, or unique name prefix")
@@ -153,6 +157,7 @@ def _interactive_add(app: SentinelApp, out: Output) -> int:
         ("API endpoint", "api", None),
         ("Software/release (GitHub releases)", "github", "release"),
         ("PyPI package", "pypi", None),
+        ("npm package", "npm", None),
     ]
     labels = [c[0] for c in choices]
     picked = select("What do you want to monitor?", labels, out)
@@ -196,7 +201,7 @@ def run_command(args, app: SentinelApp, out: Output) -> int:
                     key, value = h.split("=", 1)
                     headers[key.strip()] = value.strip()
                 config["headers"] = headers
-        elif kind == "pypi":
+        elif kind in ("pypi", "npm"):
             config = {"name": args.name, "monitor": "release"}
         source, warnings = app.add(kind, config, name=args.name, verify=not args.skip_verify)
         display.display_added(out, source, warnings)

@@ -29,7 +29,7 @@ SYM_OK_ASCII = "OK"
 SYM_WARN_ASCII = "!"
 SYM_ERR_ASCII = "X"
 
-TYPE_LABELS = {"github": "GitHub", "http": "HTTP", "api": "API", "pypi": "PyPI"}
+TYPE_LABELS = {"github": "GitHub", "http": "HTTP", "api": "API", "pypi": "PyPI", "npm": "npm"}
 
 
 def type_label(kind: str) -> str:

@@ -9,7 +9,7 @@
 [![Python](https://img.shields.io/badge/python-3.11%2B-blue.svg)](pyproject.toml)
 
 Sentinel is a lightweight CLI tool that monitors websites, APIs, GitHub
-repositories, and PyPI packages for changes. It remembers the previous state of everything it
+repositories, and PyPI/npm packages for changes. It remembers the previous state of everything it
 watches, explains exactly what changed (not just *that* it changed), and is
 architected to one day update software from its verified official sources —
 safely.
@@ -28,6 +28,7 @@ Developers care about a lot of things that change:
 - version fields in JSON endpoints (`$.version`)
 - commits landing on important repositories
 - when a PyPI package they depend on ships a new release
+- when an npm package they depend on ships a new release
 
 Checking all of these by hand is tedious and forgetful. Sentinel turns "I
 should check that" into a repeatable, inspectable, scriptable routine — and
@@ -69,6 +70,8 @@ sentinel add http https://example.com
 sentinel add api https://api.github.com/repos/microsoft/vscode --jpath '$.stargazers_count'
 sentinel add pypi requests
 sentinel add pypi sentinel-cli --name "Sentinel on PyPI"
+sentinel add npm express
+sentinel add npm typescript --name "TypeScript"
 
 sentinel list
 sentinel check
@@ -162,6 +165,8 @@ sentinel add api https://api.example.com/version --jpath '$.version'
 sentinel add api https://api.example.com/x --header 'X-Api-Key=${API_KEY}'
 sentinel add pypi requests                               # latest release on PyPI
 sentinel add pypi rich --name "Rich"
+sentinel add npm express                                 # latest release on npm
+sentinel add npm typescript --name "TypeScript"
 ```
 
 GitHub repositories are verified to exist on add (`--skip-verify` to skip).
@@ -290,6 +295,7 @@ update failed.
 | `http`  | HTTP status + content hash (+ page title) | monitoring only            | `{"url": "https://example.com"}` |
 | `api`   | HTTP status + JSON body / extracted JSON field | monitoring only       | `{"url": "…", "jpath": "$.version"}` |
 | `pypi`  | latest PyPI release         | monitoring only                          | `{"name": "requests", "monitor": "release"}` |
+| `npm`   | latest npm release          | monitoring only                          | `{"name": "express", "monitor": "release"}` |
 
 `jpath` supports `$.a.b`, `$.a[0].b`, and bare `a.b`. If the path is missing
 from the response, the value is tracked as absent — and its appearance or
