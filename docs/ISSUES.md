@@ -76,6 +76,8 @@ Fix: the fake now mirrors the real error contract. Commit `9bb4c04`
 
 ### S-6 (medium, open) — `sentinel status` performs network calls
 
+[GitHub issue #3](https://github.com/Pranesh-Selvaraj/Sentinel/issues/3)
+
 `SentinelApp.status()` runs `UpgradeService.plan_all()`, which fetches
 the latest release from the network for every updatable source. That
 makes `sentinel status` slow and network-dependent — surprising for an
@@ -86,12 +88,16 @@ plan table refreshed only by `sentinel upgrade`/`sentinel check`.
 
 ### S-7 (low, open) — digit-only source names are shadowed by ids
 
+[GitHub issue #2](https://github.com/Pranesh-Selvaraj/Sentinel/issues/2)
+
 `resolve()` treats any all-digit `ref` as a source id first, so a source
 *named* `"123"` can never be addressed by name (only by id). Edge case;
 fix by trying exact-name matches before id matches when a digit-named
 source exists.
 
 ### S-8 (low, open) — `Observation.fetched_at` is never populated
+
+[GitHub issue #10](https://github.com/Pranesh-Selvaraj/Sentinel/issues/10)
 
 The field exists on the model and is even used (`fetched_at or now` in
 `_check_one`), but no monitor ever sets it, so snapshots always carry the
@@ -101,11 +107,15 @@ upload times).
 
 ### S-9 (low, open) — `sentinel watch` header counts disabled sources
 
+[GitHub issue #4](https://github.com/Pranesh-Selvaraj/Sentinel/issues/4)
+
 The banner says "watching N sources" using `list_sources()` without
 `enabled_only=True`, so disabled sources are counted (and `check` inside
 watch skips them). Cosmetic, but misleading.
 
 ### S-10 (low, open) — scheduler drift in watch mode
+
+[GitHub issue #8](https://github.com/Pranesh-Selvaraj/Sentinel/issues/8)
 
 `Scheduler` uses `threading.Event.wait(interval)` — the tick happens
 after the wait, so each cycle drifts by the check's own duration. Fine
