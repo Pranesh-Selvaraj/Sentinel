@@ -223,7 +223,7 @@ class Database:
     def list_changes(self, source_id: int | None = None, limit: int = 50) -> list[StoredChange]:
         # Static fragments only; all values go through `?` placeholders.
         q = (
-            "SELECT * FROM changes"  # noqa: S608  # nosec B608 — static SQL, values are `?`-bound
+            "SELECT * FROM changes"  # noqa: S608  # nosec B608
             + (" WHERE source_id = ?" if source_id is not None else "")
             + " ORDER BY detected_at DESC, id DESC LIMIT ?"
         )
@@ -266,8 +266,9 @@ class Database:
             clauses.append("checked_at >= ?")
             params.append(since)
         where = f" WHERE {' AND '.join(clauses)}" if clauses else ""
-        query = (  # nosec B608 — static fragments, values are `?`-bound
-            f"SELECT source_id, COUNT(*) AS total, SUM(ok) AS ok FROM checks{where} "  # noqa: S608
+        # Static fragments only; all values go through `?` placeholders.
+        query = (
+            f"SELECT source_id, COUNT(*) AS total, SUM(ok) AS ok FROM checks{where} "  # noqa: S608  # nosec B608
             "GROUP BY source_id ORDER BY source_id"
         )
         rows = self.conn.execute(query, params).fetchall()

@@ -81,7 +81,8 @@ class Transport:
         attempts = 0
         while True:
             try:
-                with urllib.request.urlopen(req, timeout=self.timeout) as resp:  # noqa: S310  # nosec B310 — scheme guarded above
+                # Scheme was validated above; only http/https reach urllib.
+                with urllib.request.urlopen(req, timeout=self.timeout) as resp:  # noqa: S310  # nosec B310
                     body = resp.read()
                     return Response(
                         status=resp.status,
