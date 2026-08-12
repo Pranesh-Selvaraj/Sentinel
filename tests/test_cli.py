@@ -154,6 +154,47 @@ class CliTestCase(unittest.TestCase):
         self.assertEqual(code, 0)  # add succeeds; the first check reports the failure
         self.assertEqual(self.run_cli("check", "--config-dir", str(self.dir)), 2)
 
+    def test_npm_add_check_change_flow(self):
+        self.transport.route(
+            "https://registry.npmjs.org/express",
+            make_json_response(
+                200,
+                {
+                    "name": "express",
+                    "dist-tags": {"latest": "5.1.0"},
+                    "modified": "2025-06-20T00:00:00Z",
+                    "description": "web framework",
+                },
+            ),
+        )
+        self.assertEqual(self.run_cli("add", "npm", "express", "--config-dir", str(self.dir)), 0)
+        self.assertIn("Added express", self.stdout.getvalue())
+        self.assertIn("Monitoring: release", self.stdout.getvalue())
+
+        self.assertEqual(self.run_cli("check", "--config-dir", str(self.dir)), 0)
+        self.assertIn("5.1.0", self.stdout.getvalue())
+
+        self.transport.route(
+            "https://registry.npmjs.org/express",
+            make_json_response(
+                200,
+                {
+                    "name": "express",
+                    "dist-tags": {"latest": "5.2.0"},
+                    "modified": "2025-07-01T00:00:00Z",
+                    "description": "web framework",
+                },
+            ),
+        )
+        code = self.run_cli("check", "--config-dir", str(self.dir))
+        self.assertEqual(code, 1)
+        output = self.stdout.getvalue()
+        self.assertIn("5.1.0 → 5.2.0", output)
+        self.assertIn("New release detected", output)
+
+        self.assertEqual(self.run_cli("list", "--config-dir", str(self.dir)), 0)
+        self.assertIn("npm", self.stdout.getvalue())
+
     def test_check_exit_zero_flag(self):
         self.add_vscode()
         self.transport.route(f"{GITHUB_API}/releases/latest", FetchTimeout("github", 3))
