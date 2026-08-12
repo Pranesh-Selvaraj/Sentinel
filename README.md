@@ -377,8 +377,10 @@ Rules that keep Sentinel honest:
 - secrets are never printed (`mask_secrets` in `show`, `${ENV}` references)
 - only `http`/`https` URLs are ever opened — `file:`/`ftp:`/other schemes
   are rejected by the transport layer
-- the transport retries transient failures (network errors and 5xx) with
-  backoff, and never retries rate limits or 4xx client errors
+- the transport retries transient failures (network errors, 5xx, and 429
+  responses) with backoff — a server-sent ``Retry-After`` header is honored
+  (capped at 60s) — and never retries exhausted GitHub rate limits or other
+  4xx client errors
 - upgrade planning never mutates anything (`--dry-run` by default; apply
   requires confirmation or `--yes`)
 - downloads without a verified checksum are blocked unless

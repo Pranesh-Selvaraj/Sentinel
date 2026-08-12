@@ -5,6 +5,7 @@ from __future__ import annotations
 import socket
 import unittest
 import urllib.error
+from datetime import UTC, datetime, timedelta
 from unittest import mock
 
 from sentinel.errors import FetchConnection, FetchError, FetchHTTP, FetchRateLimited, FetchTimeout
@@ -62,6 +63,74 @@ class TransportTests(unittest.TestCase):
         resp = self.transport.get("https://example.com/")
         self.assertEqual(resp.body, b"ok")
         self.assertEqual(self.urlopen.call_count, 3)
+
+    def test_retries_429_then_succeeds(self):
+        self.urlopen.side_effect = [
+            fake_http_error(429, headers={"Retry-After": "1"}),
+            FakeResponse(body=b"ok"),
+        ]
+        resp = self.transport.get("https://example.com/")
+        self.assertEqual(resp.body, b"ok")
+        self.assertEqual(self.urlopen.call_count, 2)
+
+    def test_429_gives_up_after_retries(self):
+        self.urlopen.side_effect = fake_http_error(429, headers={"Retry-After": "1"})
+        with self.assertRaises(FetchHTTP) as ctx:
+            self.transport.get("https://example.com/")
+        self.assertEqual(ctx.exception.status, 429)
+        self.assertEqual(ctx.exception.retries_used, 3)
+        self.assertEqual(self.urlopen.call_count, 4)  # initial + 3 retries
+
+    def test_retry_after_seconds_is_honored(self):
+        self.urlopen.side_effect = [
+            fake_http_error(429, headers={"Retry-After": "2"}),
+            FakeResponse(body=b"ok"),
+        ]
+        with mock.patch("sentinel.httpclient.time.sleep") as sleep:
+            self.transport.get("https://example.com/")
+        sleep.assert_called_once_with(2.0)
+
+    def test_retry_after_http_date_is_honored(self):
+        from email.utils import format_datetime
+
+        when = format_datetime(datetime.now(UTC) + timedelta(minutes=1))
+        self.urlopen.side_effect = [
+            fake_http_error(503, headers={"Retry-After": when}),
+            FakeResponse(body=b"ok"),
+        ]
+        with mock.patch("sentinel.httpclient.time.sleep") as sleep:
+            self.transport.get("https://example.com/")
+        delay = sleep.call_args.args[0]
+        self.assertGreater(delay, 0)
+        self.assertLessEqual(delay, 60.0)
+
+    def test_retry_after_is_capped(self):
+        self.urlopen.side_effect = [
+            fake_http_error(429, headers={"Retry-After": "3600"}),
+            FakeResponse(body=b"ok"),
+        ]
+        with mock.patch("sentinel.httpclient.time.sleep") as sleep:
+            self.transport.get("https://example.com/")
+        sleep.assert_called_once_with(60.0)
+
+    def test_garbage_retry_after_falls_back_to_backoff(self):
+        self.urlopen.side_effect = [
+            fake_http_error(503, headers={"Retry-After": "next tuesday, maybe"}),
+            FakeResponse(body=b"ok"),
+        ]
+        with mock.patch("sentinel.httpclient.time.sleep") as sleep:
+            self.transport.get("https://example.com/")
+        # Exponential backoff with backoff=0: only the jitter remains.
+        self.assertLess(sleep.call_args.args[0], 0.25)
+
+    def test_429_without_retry_after_uses_backoff(self):
+        self.urlopen.side_effect = [
+            fake_http_error(429),
+            FakeResponse(body=b"ok"),
+        ]
+        with mock.patch("sentinel.httpclient.time.sleep") as sleep:
+            self.transport.get("https://example.com/")
+        self.assertLess(sleep.call_args.args[0], 0.25)
 
     def test_retries_connection_error_then_succeeds(self):
         self.urlopen.side_effect = [
