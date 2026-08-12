@@ -418,12 +418,7 @@ Rules that keep Sentinel honest:
 
 ## Development
 
-Project documentation:
-
-- [ISSUES.md](docs/ISSUES.md) — known issues and gaps, with severities and
-  fixing commits
-- [IMPROVEMENTS.md](docs/IMPROVEMENTS.md) — prioritized feature suggestions
-  and quick wins
+See [CHANGELOG.md](CHANGELOG.md) for the release history.
 
 ```bash
 git clone https://github.com/Pranesh-Selvaraj/Sentinel.git
