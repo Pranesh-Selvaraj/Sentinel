@@ -492,7 +492,6 @@ public issues for those).
       (GitHub releases; npm/PyPI/Docker/… updaters next)
 - [ ] Signature verification (cosign/minisign) and provenance attestations
 - [ ] Self-update verification for published distributions
-- [x] Uptime statistics from the `checks` log
 
 ---
 
