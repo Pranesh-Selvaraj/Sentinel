@@ -3,6 +3,12 @@
 Everything network-facing goes through :class:`Transport`, which makes
 retry/timeout behavior uniform and lets tests substitute a fake transport
 without touching ``urllib``.
+
+Retry policy: transient failures (network errors, 5xx, and 429 rate
+limits) are retried with backoff — a ``Retry-After`` header is honored
+when the server sends one. Exhausted GitHub rate limits (403 with
+``X-RateLimit-Remaining: 0``) and other 4xx client errors are never
+retried.
 """
 
 from __future__ import annotations
@@ -15,6 +21,8 @@ import urllib.error
 import urllib.parse
 import urllib.request
 from dataclasses import dataclass
+from datetime import UTC, datetime
+from email.utils import parsedate_to_datetime
 
 from sentinel import __version__
 from sentinel.errors import (
@@ -26,7 +34,8 @@ from sentinel.errors import (
     FetchTimeout,
 )
 
-RETRYABLE_STATUS = {500, 502, 503, 504}
+RETRYABLE_STATUS = {429, 500, 502, 503, 504}
+MAX_RETRY_AFTER = 60.0  # cap for a server-sent Retry-After (seconds)
 
 
 @dataclass
@@ -92,7 +101,7 @@ class Transport:
                     ) from exc
                 if exc.code in RETRYABLE_STATUS and attempts < self.retries:
                     attempts += 1
-                    time.sleep(self._backoff(attempts))
+                    time.sleep(self._retry_delay(attempts, exc))
                     continue
                 raise FetchHTTP(exc.code, body, url, retries_used=attempts) from exc
             except (urllib.error.URLError, OSError, TimeoutError) as exc:
@@ -124,3 +133,36 @@ class Transport:
     def _backoff(self, attempt: int) -> float:
         # jitter is for load spreading, not cryptography
         return self.backoff * (2 ** (attempt - 1)) + random.uniform(0, 0.25)  # nosec B311
+
+    def _retry_delay(self, attempt: int, exc: urllib.error.HTTPError) -> float:
+        """Seconds to wait before retry *attempt*.
+
+        A ``Retry-After`` header (seconds or HTTP-date) wins over the
+        exponential backoff — the server told us when to come back. The
+        value is capped at :data:`MAX_RETRY_AFTER` so a misbehaving server
+        cannot stall a check run for minutes.
+        """
+        if exc.headers:
+            retry_after = exc.headers.get("Retry-After")
+            if retry_after:
+                try:
+                    delay = float(retry_after)
+                except ValueError:
+                    delay = self._retry_after_date(retry_after)
+                if delay is not None:
+                    return min(max(delay, 0.0), MAX_RETRY_AFTER)
+        return self._backoff(attempt)
+
+    @staticmethod
+    def _retry_after_date(value: str) -> float | None:
+        """Parse an HTTP-date ``Retry-After``; ``None`` when unparseable."""
+        try:
+            parsed = parsedate_to_datetime(value)
+        except (TypeError, ValueError, OverflowError):
+            return None
+        if parsed is None:
+            return None
+        if parsed.tzinfo is None:
+            parsed = parsed.replace(tzinfo=UTC)
+        seconds = (parsed - datetime.now(UTC)).total_seconds()
+        return seconds if seconds > 0 else None
