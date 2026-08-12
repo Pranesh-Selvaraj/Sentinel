@@ -7,6 +7,7 @@ or JSON without duplication.
 
 from __future__ import annotations
 
+import datetime as dt
 from typing import Self
 
 from sentinel.config import Settings, load_settings
@@ -18,7 +19,7 @@ from sentinel.models import CheckResult, Source, UpdatePlan, UpdateResult
 from sentinel.monitors import get_monitor
 from sentinel.update import SelfUpdateService, UpgradeReport, UpgradeService
 from sentinel.updaters import get_updaters
-from sentinel.util import utc_now
+from sentinel.util import UTC, utc_now
 from sentinel.watcher import Scheduler
 
 
@@ -163,6 +164,49 @@ class SentinelApp:
         self.db.set_check_result(source.id, False, message, now)
 
     # -- reporting --------------------------------------------------------
+    def uptime(self, days: int = 30) -> dict:
+        """Uptime statistics per source from the per-attempt checks log.
+
+        ``days <= 0`` covers all recorded history. Sources without any
+        checks in the window report ``None`` uptime.
+        """
+        since = None
+        if days > 0:
+            cutoff = dt.datetime.now(UTC) - dt.timedelta(days=days)
+            since = cutoff.strftime("%Y-%m-%dT%H:%M:%SZ")
+        stats = {s["source_id"]: s for s in self.db.check_stats(since=since)}
+        rows = []
+        totals = {"total": 0, "ok": 0}
+        for source in self.db.list_sources():
+            stat = stats.get(source.id)
+            if not stat:
+                rows.append(
+                    {
+                        "id": source.id,
+                        "name": source.name,
+                        "kind": source.kind,
+                        "total": 0,
+                        "ok": 0,
+                        "uptime": None,
+                    }
+                )
+                continue
+            uptime = round(100.0 * stat["ok"] / stat["total"], 1) if stat["total"] else None
+            totals["total"] += stat["total"]
+            totals["ok"] += stat["ok"]
+            rows.append(
+                {
+                    "id": source.id,
+                    "name": source.name,
+                    "kind": source.kind,
+                    "total": stat["total"],
+                    "ok": stat["ok"],
+                    "uptime": uptime,
+                }
+            )
+        overall = round(100.0 * totals["ok"] / totals["total"], 1) if totals["total"] else None
+        return {"days": days, "rows": rows, "overall": overall, "total_checks": totals["total"]}
+
     def status(self) -> dict:
         """Health overview + what could be updated."""
         rows = []

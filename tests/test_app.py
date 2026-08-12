@@ -151,6 +151,38 @@ class AppTests(unittest.TestCase):
         self.assertIn("current", info)
         self.assertIsNotNone(info["current"])
 
+    def test_uptime_aggregates_checks(self):
+        self.add_vscode()
+        self.app.check()  # ok
+        self.app.check()  # ok
+        self.transport.route(f"{GITHUB_API}/releases/latest", FetchTimeout("github", 3))
+        self.app.check()  # failed
+
+        data = self.app.uptime(days=0)
+        self.assertEqual(len(data["rows"]), 1)
+        row = data["rows"][0]
+        self.assertEqual(row["total"], 3)
+        self.assertEqual(row["ok"], 2)
+        self.assertEqual(row["uptime"], 66.7)  # 2/3
+        self.assertEqual(data["overall"], 66.7)
+        self.assertEqual(data["total_checks"], 3)
+
+    def test_uptime_without_checks(self):
+        self.add_vscode()
+        data = self.app.uptime(days=30)
+        self.assertEqual(data["rows"][0]["uptime"], None)
+        self.assertIsNone(data["overall"])
+
+    def test_uptime_window_excludes_old_checks(self):
+        self.add_vscode()
+        sid = self.app.db.list_sources()[0].id
+        # A failed check from long ago is outside the default 30-day window.
+        self.app.db.record_check(sid, "2020-01-01T00:00:00Z", False, "old failure")
+        self.app.check()
+        data = self.app.uptime(days=30)
+        self.assertEqual(data["rows"][0]["total"], 1)
+        self.assertEqual(data["rows"][0]["uptime"], 100.0)
+
 
 if __name__ == "__main__":
     unittest.main()

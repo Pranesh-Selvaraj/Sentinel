@@ -98,6 +98,32 @@ class DatabaseTests(unittest.TestCase):
         self.assertEqual(self.db.prune(retention_days=30), 0)
         self.assertEqual(self.db.prune(retention_days=-1), 0)
 
+    def test_check_stats_aggregates_per_source(self):
+        a = self.db.add_source("http", "A", {}, utc_now())
+        b = self.db.add_source("http", "B", {}, utc_now())
+        for _ in range(3):
+            self.db.record_check(a, utc_now(), True, None)
+        self.db.record_check(a, utc_now(), False, "timeout")
+        self.db.record_check(b, utc_now(), True, None)
+        self.db.record_check(b, utc_now(), False, "boom")
+
+        stats = {s["source_id"]: s for s in self.db.check_stats()}
+        self.assertEqual(stats[a]["total"], 4)
+        self.assertEqual(stats[a]["ok"], 3)
+        self.assertEqual(stats[b]["total"], 2)
+        self.assertEqual(stats[b]["ok"], 1)
+
+    def test_check_stats_window_and_filter(self):
+        sid = self.db.add_source("http", "A", {}, utc_now())
+        self.db.record_check(sid, "2020-01-01T00:00:00Z", False, "x")
+        self.db.record_check(sid, utc_now(), True, None)
+        stats = self.db.check_stats(since="2021-01-01T00:00:00Z")
+        self.assertEqual(len(stats), 1)
+        self.assertEqual(stats[0]["total"], 1)
+        self.assertEqual(stats[0]["ok"], 1)
+        self.assertEqual(self.db.check_stats(source_id=sid, since="2021-01-01T00:00:00Z"), stats)
+        self.assertEqual(self.db.check_stats(source_id=999), [])
+
     def test_delete_cascades(self):
         sid = self.db.add_source("http", "A", {}, utc_now())
         self.db.record_snapshot(sid, utc_now(), "200", {"status": 200}, None)

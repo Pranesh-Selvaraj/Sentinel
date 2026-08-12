@@ -250,6 +250,29 @@ class Database:
         return rows[0] if rows else None
 
     # -- retention -------------------------------------------------------
+    def check_stats(self, source_id: int | None = None, since: str | None = None) -> list[dict]:
+        """Aggregate the per-attempt checks log for uptime statistics.
+
+        Returns one dict per source with ``source_id``, ``total`` (attempts)
+        and ``ok`` (successful attempts) within the window (*since* is an
+        ISO-8601 UTC cutoff; ``None`` means all history).
+        """
+        clauses: list[str] = []
+        params: list = []
+        if source_id is not None:
+            clauses.append("source_id = ?")
+            params.append(source_id)
+        if since:
+            clauses.append("checked_at >= ?")
+            params.append(since)
+        where = f" WHERE {' AND '.join(clauses)}" if clauses else ""
+        query = (  # nosec B608 — static fragments, values are `?`-bound
+            f"SELECT source_id, COUNT(*) AS total, SUM(ok) AS ok FROM checks{where} "  # noqa: S608
+            "GROUP BY source_id ORDER BY source_id"
+        )
+        rows = self.conn.execute(query, params).fetchall()
+        return [{"source_id": r["source_id"], "total": r["total"], "ok": r["ok"] or 0} for r in rows]
+
     def prune(self, retention_days: int) -> int:
         """Delete per-attempt ``checks`` rows older than *retention_days*.
 

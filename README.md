@@ -128,6 +128,7 @@ sentinel remove     Remove a source
 sentinel list       List all sources
 sentinel check      Check all sources, report and store changes
 sentinel status     Overview: sources, current values, health, updates
+sentinel uptime     Uptime statistics from the checks log
 sentinel show       Full detail of one source (config, raw preview, recent changes)
 sentinel history    A source's observation history
 sentinel watch      Check repeatedly and print changes as they happen
@@ -223,6 +224,19 @@ Aug 10  1.103.0
 Aug 03  1.102.0
 Jul 27  1.101.2
 ```
+
+### Uptime statistics
+
+```bash
+sentinel uptime              # last 30 days
+sentinel uptime --days 7     # last week
+sentinel uptime --days 0     # all recorded history
+sentinel uptime --json       # machine-readable
+```
+
+Every check attempt is logged, so Sentinel can answer "has this source been
+healthy?": per-source and overall uptime percentages, with check/failure
+counts. Sources without checks in the window are shown as `—`.
 
 ### update vs upgrade — and safety
 
@@ -461,7 +475,9 @@ public issues for those).
 - [x] API monitoring with JSON field extraction
 - [x] SQLite state store, history, change explanations
 - [x] Watch mode, JSON output, exit codes for scripting
-- [ ] New source types: npm, PyPI, Docker Hub, RSS, product prices, GitLab,
+- [x] PyPI and npm package monitors
+- [x] Uptime statistics from the `checks` log (`sentinel uptime`)
+- [ ] New source types: Docker Hub, RSS, product prices, GitLab,
       certificates/domains
 - [ ] Notifications (desktop, webhook, email)
 - [x] Official-source updaters for supported software (`sentinel upgrade`)
@@ -469,7 +485,7 @@ public issues for those).
       (GitHub releases; npm/PyPI/Docker/… updaters next)
 - [ ] Signature verification (cosign/minisign) and provenance attestations
 - [ ] Self-update verification for published distributions
-- [ ] Uptime statistics from the `checks` log
+- [x] Uptime statistics from the `checks` log
 
 ---
 

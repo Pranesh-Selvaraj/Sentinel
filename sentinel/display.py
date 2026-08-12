@@ -172,6 +172,40 @@ def display_show(out: Output, data: dict) -> None:
         out.print(out.dim("  No changes recorded yet."))
 
 
+def display_uptime(out: Output, data: dict) -> None:
+    """Render uptime statistics (per-source + overall)."""
+    window = (
+        f"last {data['days']} day{'s' if data['days'] != 1 else ''}" if data["days"] > 0 else "all history"
+    )
+    out.header(f"Sentinel Uptime ({window})")
+    out.print()
+    rows = data["rows"]
+    if not rows:
+        out.print("No sources configured yet. Add one:")
+        out.print(out.info("  sentinel add"))
+        return
+    table_rows = []
+    for row in rows:
+        uptime = f"{row['uptime']:.1f}%" if row["uptime"] is not None else "—"
+        if row["total"] == 0:
+            status = out.dim(uptime)
+        elif row["uptime"] == 100.0:
+            status = out.ok(uptime)
+        elif row["uptime"] >= 95.0:
+            status = out.warn(uptime)
+        else:
+            status = out.err(uptime)
+        table_rows.append([row["name"], type_label(row["kind"]), str(row["total"]), str(row["ok"]), status])
+    out.table(["NAME", "TYPE", "CHECKS", "OK", "UPTIME"], table_rows)
+    out.print()
+    if data["overall"] is None:
+        out.print(out.dim("No checks recorded yet — run 'sentinel check'."))
+    else:
+        failed = data["total_checks"] - sum(r["ok"] for r in rows)
+        summary = f"Overall: {data['overall']:.1f}% uptime ({data['total_checks']} checks, {failed} failed)"
+        out.print(out.bold(summary))
+
+
 def display_history(out: Output, data: dict) -> None:
     source: Source = data["source"]
     out.header(f"{source.name} History")
