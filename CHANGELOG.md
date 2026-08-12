@@ -4,6 +4,17 @@ All notable changes to Sentinel are documented here. The format is based on
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project
 adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.1] — 2026-08-12
+
+### Fixed
+
+- **CI security job** — bandit's `B608` suppression directives were placed
+  on the wrong lines in `sentinel/db.py`, failing the security gate on
+  `main`. The `# nosec` comments now sit on the exact lines bandit flags,
+  and explanatory text was moved off the directive lines (bandit was
+  parsing it as test names). `bandit -q -r sentinel` now exits 0 with no
+  findings.
+
 ## [0.2.0] — 2026-08-12
 
 ### Added
@@ -112,5 +123,6 @@ Initial release: **Sentinel — a universal source & software change monitor.**
   - MIT license, contributing and security guidelines, branch-protected
     `main` with PR-only workflow.
 
+[0.2.1]: https://github.com/Pranesh-Selvaraj/Sentinel/releases/tag/v0.2.1
 [0.2.0]: https://github.com/Pranesh-Selvaraj/Sentinel/releases/tag/v0.2.0
 [0.1.0]: https://github.com/Pranesh-Selvaraj/Sentinel/releases/tag/v0.1.0
