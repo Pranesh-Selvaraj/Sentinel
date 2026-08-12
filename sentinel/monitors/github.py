@@ -47,7 +47,12 @@ class GitHubMonitor(Monitor):
                 break
             print("Expected owner/name, e.g. microsoft/vscode")
         monitor = default_monitor or select("Monitor", ["Releases", "Tags", "Commits"]).lower()
-        return {"repo": repo, "monitor": monitor}
+        config: dict = {"repo": repo, "monitor": monitor}
+        if monitor == "release":
+            install_path = input_text("Install path (optional — enables 'sentinel upgrade')")
+            if install_path:
+                config["install_path"] = install_path
+        return config
 
     # -- fetch ------------------------------------------------------------
     def fetch(self, source: Source, transport: Transport) -> Observation:

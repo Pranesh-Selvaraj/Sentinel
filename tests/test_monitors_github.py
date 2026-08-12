@@ -1,4 +1,5 @@
 import unittest
+from unittest import mock
 
 from sentinel.errors import FetchHTTP, FetchRateLimited
 from sentinel.httpclient import Transport
@@ -11,6 +12,33 @@ API = "https://api.github.com"
 
 def source(config: dict) -> Source:
     return Source(id=1, kind="github", name="VS Code", config=config)
+
+    def test_prompt_collects_install_path_for_release_monitor(self):
+        with (
+            mock.patch("sentinel.monitors.github.input_text", side_effect=["jqlang/jq", "~/tools/jq"]),
+        ):
+            config = GitHubMonitor.prompt(default_monitor="release")
+        self.assertEqual(config["repo"], "jqlang/jq")
+        self.assertEqual(config["monitor"], "release")
+        self.assertEqual(config["install_path"], "~/tools/jq")
+
+    def test_prompt_skips_install_path_for_other_monitors(self):
+        with mock.patch("sentinel.monitors.github.input_text", side_effect=["jqlang/jq"]):
+            config = GitHubMonitor.prompt(default_monitor="commits")
+        self.assertEqual(config["monitor"], "commits")
+        self.assertNotIn("install_path", config)
+
+    def test_prompt_omits_install_path_when_blank(self):
+        with mock.patch("sentinel.monitors.github.input_text", side_effect=["jqlang/jq", ""]):
+            config = GitHubMonitor.prompt(default_monitor="release")
+        self.assertNotIn("install_path", config)
+
+    def test_prompt_validates_repo_format(self):
+        with mock.patch(
+            "sentinel.monitors.github.input_text", side_effect=["not-a-slash-repo", "jqlang/jq", ""]
+        ):
+            config = GitHubMonitor.prompt(default_monitor="release")
+        self.assertEqual(config["repo"], "jqlang/jq")
 
 
 class GitHubFetchTests(unittest.TestCase):
