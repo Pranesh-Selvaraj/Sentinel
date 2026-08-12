@@ -22,8 +22,11 @@ dependencies = []
 [project.scripts]
 sentinel = "sentinel.cli:main"
 
-[tool.setuptools]
-packages = ["sentinel", "sentinel.monitors"]
+[tool.setuptools.packages.find]
+# Include every subpackage (monitors, updaters, …) so an installed wheel
+# behaves exactly like the source tree. Missing a subpackage here breaks
+# every command (sentinel.cli imports sentinel.app → sentinel.updaters).
+include = ["sentinel*"]
 
 [tool.ruff]
 target-version = "py311"
